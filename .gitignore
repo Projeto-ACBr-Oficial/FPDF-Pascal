@@ -77,3 +77,4 @@ lib/
 # Boss dependency manager vendor folder https://github.com/HashLoad/boss
 modules/
 *.bak
+demo/lazarus/FPDFPascalTeste.pdf

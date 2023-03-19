@@ -13,12 +13,14 @@ var
   Fpdf1: TFPDF;
   t: TStrings;
   hh: TDateTime;
+  DirFiles: String;
 begin
   hh := now;
+  DirFiles := ExtractFilePath(ParamStr(0))+'..\files\';
   DefaultFormatSettings.DecimalSeparator := ',';
   Fpdf1 := TFPDF.Create;
   t := TStringList.Create;
-  t.LoadFromFile(ExtractFilePath(ParamStr(0))+'20k_c1.txt');
+  t.LoadFromFile(DirFiles+'20k_c1.txt');
   with Fpdf1 do begin
     SetCompression(False);
     AddPage;
@@ -62,10 +64,10 @@ begin
     SetFont('Helvetica','B',16);
     Cell(60,10,'Free Jpdf Pascal','1',0,'C');
     Cell(60,10,'Free Jpdf Pascal','1',0,'C');
-    //Image(ExtractFilePath(ParamStr(0))+'image1.jpg',40,40,80,75);
-    //Image(ExtractFilePath(ParamStr(0))+'image2.png',40,120,120,75);
-    //Image(ExtractFilePath(ParamStr(0))+'image3.png',40,200,100,60);
-    //Image('https://projetoacbr.com.br/wp-content/uploads/2021/06/acbr.png',40,200,100,100);
+    Image(DirFiles+'image1.jpg',40,40,80,75);
+    Image(DirFiles+'image2.png',40,120,120,75);
+    Image(DirFiles+'image3.png',40,200,100,60);
+    Image('https://projetoacbr.com.br/wp-content/uploads/2021/06/acbr.png',40,200,100,100);
     SetFont('Courier','BIU',16);
     SetTextColor(0,0,0);
     Text(100,140,'Free Jpdf Pascal');
@@ -79,7 +81,7 @@ begin
     Writer(10,' If you want to see how the development is progressing ');
     SetFont('Times','',16);
     Writer(10,' you can take a peek at the developer versions.');
-    SaveToFile(ExtractFilePath(ParamStr(0)) + 'JPFpdfTESTE.pdf');
+    SaveToFile(ExtractFilePath(ParamStr(0)) + 'FPDFPascalTeste.pdf');
     Free;
     WriteLn(FormatDateTime('hh:mm:ss:zzz',now-hh));
   end;

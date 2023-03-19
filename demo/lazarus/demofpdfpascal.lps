@@ -9,8 +9,8 @@
         <Filename Value="demofpdfpascal.lpr"/>
         <IsPartOfProject Value="True"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="2"/>
-        <CursorPos X="50" Y="13"/>
+        <TopLine Value="47"/>
+        <CursorPos X="45" Y="62"/>
         <UsageCount Value="20"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -29,7 +29,7 @@
         <UsageCount Value="20"/>
       </Unit2>
     </Units>
-    <JumpHistory Count="2" HistoryIndex="1">
+    <JumpHistory Count="3" HistoryIndex="2">
       <Position1>
         <Filename Value="demofpdfpascal.lpr"/>
       </Position1>
@@ -37,6 +37,10 @@
         <Filename Value="demofpdfpascal.lpr"/>
         <Caret Line="17" Column="3" TopLine="4"/>
       </Position2>
+      <Position3>
+        <Filename Value="demofpdfpascal.lpr"/>
+        <Caret Line="84" Column="46" TopLine="50"/>
+      </Position3>
     </JumpHistory>
     <RunParams>
       <FormatVersion Value="2"/>
