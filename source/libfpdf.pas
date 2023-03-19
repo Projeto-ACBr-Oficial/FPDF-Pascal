@@ -7,7 +7,7 @@ Based on the library FPDF written in PHP by Olivier PLATHEY and
 
 }
 
-unit libjpfpdf;
+unit libfpdf;
 
 // Define USESYNAPSE if you want to force use of synapse
 {.$DEFINE USESYNAPSE}

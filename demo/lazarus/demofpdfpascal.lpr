@@ -1,4 +1,4 @@
-program progjpfpdf;
+program demofpdfpascal;
 
 {$mode objfpc}{$H+}
 
@@ -6,7 +6,8 @@ uses
   {$IFDEF UNIX}{$IFDEF UseCThreads}
   cthreads,
   {$ENDIF}{$ENDIF}
-  Classes, libjpfpdf, sysutils;
+  Classes, sysutils,
+  ..\..\source\libfpdf;
 
 var
   JPFpdf1: TFPDF;
