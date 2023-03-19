@@ -65,6 +65,12 @@ __recovery/
 # Lazarus  backups
 backup/
 
+# Lazarus Debug Fils
+*.dbg
+
+# Lazarus Compiled Files
+lib/
+
 # Castalia statistics file (since XE7 Castalia is distributed with Delphi)
 *.stat
 

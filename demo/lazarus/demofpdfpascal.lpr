@@ -7,19 +7,19 @@ uses
   cthreads,
   {$ENDIF}{$ENDIF}
   Classes, sysutils,
-  ..\..\source\fpdf;
+  fpdf;
 
 var
-  JPFpdf1: TFPDF;
+  Fpdf1: TFPDF;
   t: TStrings;
   hh: TDateTime;
 begin
   hh := now;
   DefaultFormatSettings.DecimalSeparator := ',';
-  JPFpdf1 := TFPDF.Create;
+  Fpdf1 := TFPDF.Create;
   t := TStringList.Create;
   t.LoadFromFile(ExtractFilePath(ParamStr(0))+'20k_c1.txt');
-  with JPFpdf1 do begin
+  with Fpdf1 do begin
     SetCompression(False);
     AddPage;
     SetFont('Times','B',16);
