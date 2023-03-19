@@ -7,7 +7,7 @@ uses
   cthreads,
   {$ENDIF}{$ENDIF}
   Classes, sysutils,
-  ..\..\source\libfpdf;
+  ..\..\source\fpdf;
 
 var
   JPFpdf1: TFPDF;
