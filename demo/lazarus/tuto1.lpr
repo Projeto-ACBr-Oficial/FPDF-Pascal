@@ -14,10 +14,11 @@ var
 begin
   pdf := TFPDF.Create();
   try
+    pdf.SetCompression(False);
     pdf.AddPage();
     pdf.SetFont('Arial','B',16);
     pdf.Cell(40,10,'Hello World!');
-    pdf.Output('F','c:\\temp\\tuto1.pdf');
+    pdf.SaveToFile('c:\temp\tuto1-pas.pdf');
   finally
     pdf.Free;
   end;

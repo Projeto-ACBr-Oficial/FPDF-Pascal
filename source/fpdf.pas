@@ -131,7 +131,7 @@ type
     fdiff: String;
   public
     constructor Create;
-    procedure fill(AFontInfo: TFPDFFontInfo; AValue: Integer);
+    procedure fill(var AFontInfo: TFPDFFontInfo; AValue: Integer);
 
     property FontType: TFPDFFontType read fFontType write fFontType;
     property Name: String read fName write fName;
@@ -255,7 +255,8 @@ type
 
     procedure PopulateCoreFonts; virtual;
 
-    function _getpagesize(APageSize: TFPDFPageFormat): TFPDFPageSize;
+    function _getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize;
+    function _getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize;
     procedure _beginpage(AOrientation: TFPDFOrientation; APageSize: TFPDFPageSize; ARotation: TFPDFRotation);
     procedure _endpage;
 
@@ -298,10 +299,9 @@ type
     function GzDecompress(const StrIn: AnsiString): String;
 
   public
-    constructor Create; overload;
-    constructor Create(orientation: TFPDFOrientation; pageUnit: TFPDFUnit;
-      pageFormat: TFPDFPageFormat); overload;
-    constructor Create(orientation: TFPDFOrientation; pageUnit: TFPDFUnit;
+    constructor Create(AOrientation: TFPDFOrientation = poPortrait;
+      APageUnit: TFPDFUnit = puMM; APageFormat: TFPDFPageFormat = pfA4); overload;
+    constructor Create(AOrientation: TFPDFOrientation; APageUnit: TFPDFUnit;
       APageSize: TFPDFPageSize); overload;
     destructor Destroy; override;
 
@@ -327,7 +327,7 @@ type
 
     procedure AddPage; overload;
     procedure AddPage(vOrientation: TFPDFOrientation); overload;
-    procedure AddPage(vOrientation: TFPDFOrientation; vSize: TFPDFPageSize; vRotation: TFPDFRotation); overload;
+    procedure AddPage(AOrientation: TFPDFOrientation; ASize: TFPDFPageSize; ARotation: TFPDFRotation); overload;
     procedure Header; virtual;
     procedure Footer; virtual;
     function PageNo: Integer;
@@ -391,6 +391,7 @@ type
 const
   CFontEncodeStr: array[TFPDFFontEncode] of shortstring = ('', 'cp1252');
   CFontType: array[TFPDFFontType] of shortstring =('Core', 'TrueType', 'Type1');
+  CPDFRotation: array[TFPDFRotation] of Integer = (0, 90, 180, 270);
 
 
 function SwapBytes(Value: LongWord): LongWord;
@@ -480,12 +481,12 @@ begin
   fuv1[160] := 160;    fuv2[160] := 96;
 end;
 
-procedure TFPDFFont.fill(AFontInfo: TFPDFFontInfo; AValue: Integer);
+procedure TFPDFFont.fill(var AFontInfo: TFPDFFontInfo; AValue: Integer);
 var
   j: Integer;
 begin
   for j := Low(TFPDFFontInfo) to High(TFPDFFontInfo) do
-    fcw[j] := AValue;
+    AFontInfo[j] := AValue;
 end;
 
 { TFPDFFonts }
@@ -563,24 +564,21 @@ end;
 
 {%region Constructor/Destructor}
 
-constructor TFPDF.Create;
-begin
-  Create(poPortrait, puCM, pfA4);
-end;
-
-constructor TFPDF.Create(orientation: TFPDFOrientation; pageUnit: TFPDFUnit;
-  pageFormat: TFPDFPageFormat);
+constructor TFPDF.Create(AOrientation: TFPDFOrientation; APageUnit: TFPDFUnit;
+  APageFormat: TFPDFPageFormat);
 var
   APageSize: TFPDFPageSize;
 begin
+  //Scale factor
+  Self.k := cUNIT[APageUnit];
+  // Page sizes
   DefineDefaultPageSizes;
-  APageSize.w := Self.StdPageSizes[pageFormat].w;
-  APageSize.h := Self.StdPageSizes[pageFormat].h;
 
-  Create(orientation, pageUnit, APageSize );
+  APageSize := _getpagesize(APageFormat);
+  Create(AOrientation, APageUnit, APageSize);
 end;
 
-constructor TFPDF.Create(orientation: TFPDFOrientation; pageUnit: TFPDFUnit;
+constructor TFPDF.Create(AOrientation: TFPDFOrientation; APageUnit: TFPDFUnit;
   APageSize: TFPDFPageSize);
 var
   margin: Double;
@@ -632,7 +630,7 @@ begin
   PopulateCoreFonts;
 
   //Scale factor
-  Self.K := cUNIT[pageUnit];
+  Self.k := cUNIT[APageUnit];
   // Page sizes
   DefineDefaultPageSizes;
 
@@ -641,11 +639,11 @@ begin
   Self.CurPageSize.w := APageSize.w;
   Self.CurPageSize.h := APageSize.h;
 
-  //Page orientation
-  if (orientation = poDefault) then
-    orientation := poPortrait;
+  //Page AOrientation
+  if (AOrientation = poDefault) then
+    AOrientation := poPortrait;
 
-  if (orientation = poLandscape) then
+  if (AOrientation = poLandscape) then
   begin
     Self.w := APageSize.h;
     Self.h := APageSize.w;
@@ -656,7 +654,7 @@ begin
     Self.h := APageSize.h;
   end;
 
-  Self.DefOrientation := orientation;
+  Self.DefOrientation := AOrientation;
   Self.CurOrientation := Self.DefOrientation;
   Self.wPt := Self.w*Self.k;
   Self.hPt := Self.h*Self.k;
@@ -678,7 +676,7 @@ begin
   SetCompression(True);
   // Metadata
   Self.metadata := TStringList.Create;
-  Self.metadata.Values['Producer'] := 'FPDF Pascal'+FPDF_VERSION;
+  Self.metadata.Values['Producer'] := 'FPDF Pascal '+FPDF_VERSION;
   // Set default PDF version number
   Self.PDFVersion := 1.3;
 
@@ -868,7 +866,7 @@ begin
   AddPage(vOrientation, Self.CurPageSize, Self.CurRotation);
 end;
 
-procedure TFPDF.AddPage(vOrientation: TFPDFOrientation; vSize: TFPDFPageSize; vRotation: TFPDFRotation);
+procedure TFPDF.AddPage(AOrientation: TFPDFOrientation; ASize: TFPDFPageSize; ARotation: TFPDFRotation);
 var
   vdc, vfc, vtc, vfamily, vstyle: String;
   vFontSize, vlw: Double;
@@ -902,12 +900,12 @@ begin
   end;
 
   //Start new page
-  _beginpage(vOrientation, vSize, vRotation);
+  _beginpage(AOrientation, ASize, ARotation);
   //Set line cap style to square
   _out('2 J');
   //Set line width
   Self.LineWidth := vlw;
-  _out(FloatToStr(vlw*Self.k) + ' w');
+  _out(Format('%.2f', [vlw*Self.k], TFPDFFormatSetings) + ' w');
 
   //Set font
   SetFont(vfamily, vstyle, vFontSize);
@@ -936,7 +934,7 @@ begin
   if (Self.LineWidth <> vlw) then
   begin
     Self.LineWidth := vlw;
-    _out(FloatToStr(vlw*Self.k) + ' w');
+    _out(Format('%.2f', [vlw*Self.k], TFPDFFormatSetings) + ' w');
   end;
 
   //Restore font
@@ -985,9 +983,9 @@ procedure TFPDF.SetDrawColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for all stroking operations
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.DrawColor := Format('%5.3f', [ValR / 255], TFPDFFormatSetings)+' G'
+    Self.DrawColor := Format('%.3f', [ValR / 255], TFPDFFormatSetings)+' G'
   else
-    Self.DrawColor := Format('%5.3f %5.3f %5.3f RG', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
+    Self.DrawColor := Format('%.3f %.3f %.3f RG', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
 
   if (Self.page > 0) then
     _out(Self.DrawColor);
@@ -1002,9 +1000,9 @@ procedure TFPDF.SetFillColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for all stroking operations
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.FillColor := Format('%5.3f', [ValR / 255], TFPDFFormatSetings)+' g'
+    Self.FillColor := Format('%.3f', [ValR / 255], TFPDFFormatSetings)+' g'
   else
-    Self.FillColor := Format('%5.3f %5.3f %5.3f rg', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
+    Self.FillColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
 
   if (Self.page > 0) then
     _out(Self.FillColor);
@@ -1019,9 +1017,9 @@ procedure TFPDF.SetTextColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for text
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.TextColor := Format('%5.3f', [ValR / 255], TFPDFFormatSetings)+' g'
+    Self.TextColor := Format('%.3f', [ValR / 255], TFPDFFormatSetings)+' g'
   else
-    Self.TextColor := Format('%5.3f %5.3f %5.3f rg', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
+    Self.TextColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
 
   Self.ColorFlag := (Self.FillColor <> Self.TextColor);
 end;
@@ -1055,13 +1053,13 @@ begin
   //Set line width
   Self.LineWidth := vWidth;
   if (Self.page > 0) then
-    _out(FloatToStr(vWidth*Self.k) + ' w');
+    _out(Format('%.2f', [vWidth*Self.k], TFPDFFormatSetings) + ' w');
 end;
 
 procedure TFPDF.Line(vX1, vY1, vX2, vY2: Double);
 begin
   //Draw a line
-  _out(Format('%5.2f %5.2f m %5.2f %5.2f l S', [vX1*Self.k, (Self.h-vY1)*Self.k, vX2*Self.k, (Self.h-vY2)*Self.k], TFPDFFormatSetings));
+  _out(Format('%.2f %.2f m %.2f %.2f l S', [vX1*Self.k, (Self.h-vY1)*Self.k, vX2*Self.k, (Self.h-vY2)*Self.k], TFPDFFormatSetings));
 end;
 
 procedure TFPDF.Rect(vX, vY, vWidht, vHeight: Double; const vStyle: String);
@@ -1077,7 +1075,7 @@ begin
   else
     vop := 'S';
 
-  _out(Format('%5.2f %5.2f %5.2f %5.2f re %s', [vX*Self.k, (Self.h-vY)*Self.k, vWidht*Self.k, -vHeight*Self.k, vop], TFPDFFormatSetings));
+  _out(Format('%.2f %.2f %.2f %.2f re %s', [vX*Self.k, (Self.h-vY)*Self.k, vWidht*Self.k, -vHeight*Self.k, vop], TFPDFFormatSetings));
 end;
 
 procedure TFPDF.AddFont(AFamily: String; AStyle: String; AFile: String);
@@ -1112,7 +1110,6 @@ var
   vFamily, vStyle, vFontName, vStyleName: String;
   oFont: TFPDFFont;
   i, FontIndex, LenUsedFonts: Integer;
-  NewFont: Boolean;
 begin
   // Select a font; size given in points
   if (Trim(AFamily)='') then
@@ -1159,26 +1156,27 @@ begin
   Self.FontSizePt := ASize;
   Self.FontSize := ASize/Self.k;
   Self.CurrentFont := oFont;
-  FontIndex := Fonts.IndexOf(Self.CurrentFont);
-  if (Self.page > 0) then
-    _out(Format('BT /F%d %5.2f Tf ET', [FontIndex, Self.FontSizePt], TFPDFFormatSetings));
 
-  NewFont := True;
   LenUsedFonts := Length(Self.UsedFonts);
+  FontIndex := 0;
   for i := 0 to LenUsedFonts-1 do
   begin
     if (Self.UsedFonts[i].FontName = vFontName) then
     begin
-      NewFont := False;
+      FontIndex := i+1;
       Break;
     end;
   end;
 
-  if NewFont then
+  if (FontIndex < 1) then
   begin
-    SetLength(Self.UsedFonts, LenUsedFonts+1);
-    Self.UsedFonts[LenUsedFonts].FontName := vFontName;
+    FontIndex := LenUsedFonts+1;
+    SetLength(Self.UsedFonts, FontIndex);
+    Self.UsedFonts[FontIndex-1].FontName := vFontName;
   end;
+
+  if (Self.page > 0) then
+    _out(Format('BT /F%d %.2f Tf ET', [FontIndex, Self.FontSizePt], TFPDFFormatSetings));
 end;
 
 procedure TFPDF.SetFontSize(ASize: Double; fUnderline: Boolean);
@@ -1190,7 +1188,7 @@ begin
   Self.FontSizePt := ASize;
   Self.FontSize := (ASize/Self.k);
   if ((Self.page > 0) and Assigned(Self.CurrentFont)) then
-    _out(Format('BT /F%d %5.2f Tf ET', [Fonts.IndexOf(Self.CurrentFont), Self.FontSizePt], TFPDFFormatSetings));
+    _out(Format('BT /F%d %.2f Tf ET', [Fonts.IndexOf(Self.CurrentFont), Self.FontSizePt], TFPDFFormatSetings));
 end;
 
 procedure TFPDF.AddLink;
@@ -1231,7 +1229,7 @@ begin
   if not Assigned(Self.CurrentFont) then
      Error('No font has been set');
 
-  s := Format('BT %5.2f %5.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(vText)], TFPDFFormatSetings);
+  s := Format('BT %.2f %.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(vText)], TFPDFFormatSetings);
   if ( Self.underline and (vText <> '') ) then
     s := s + ' ' + Self._dounderline(vX, vY, vText);
 
@@ -1273,7 +1271,7 @@ begin
     if (vws > 0) then
     begin
       Self.ws := vws;
-      _out(Format('%5.3f Tw', [vws*vk], TFPDFFormatSetings));
+      _out(Format('%.3f Tw', [vws*vk], TFPDFFormatSetings));
     end;
   end;
 
@@ -1288,23 +1286,23 @@ begin
     else
       vop := 'S';
 
-    s := Format('%3.2f %.32f %3.2f %3.2f re %s ', [Self.x*vk, (Self.h-Self.y)*vk, vWidth*vk, -vHeight*vk, vop], TFPDFFormatSetings);
+    s := Format('%.2f %.32f %.2f %.2f re %s ', [Self.x*vk, (Self.h-Self.y)*vk, vWidth*vk, -vHeight*vk, vop], TFPDFFormatSetings);
   end;
 
   vx := Self.x;
   vy := Self.y;
 
   if (pos('L', vBorder) > 0) then
-    s := s + Format('%3.2f %3.2f m %3.2f %3.2f l S ', [vx*vk, (Self.h-vy)*vk, vx*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-vy)*vk, vx*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
 
   if (pos('T', vBorder) > 0) then
-    s := s + Format('%3.2f %3.2f m %3.2f %3.2f l S ', [vx*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-vy)*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-vy)*vk], TFPDFFormatSetings);
 
   if (pos('R', vBorder) > 0) then
-    s := s + Format('%3.2f %3.2f m %3.2f %3.2f l S ', [(vx+vWidth)*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [(vx+vWidth)*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
 
   if (pos('B', vBorder) > 0) then
-    s := s + Format('%3.2f %3.2f m %3.2f %3.2f l S ', [vx*vk, (Self.h-(vy+vHeight))*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-(vy+vHeight))*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
 
   if (vText <> '') then
   begin
@@ -1321,7 +1319,7 @@ begin
     if Self.ColorFlag then
       s := s + 'q ' + Self.TextColor + ' ';
 
-    s := s + Format('BT %3.2f %3.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(vText)], TFPDFFormatSetings);
+    s := s + Format('BT %.2f %.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(vText)], TFPDFFormatSetings);
     if Self.underline then
       s := s + ' '+Self._dounderline(Self.x+vdx, Self.y+0.5*vHeight+0.3*Self.FontSize, vText);
 
@@ -1457,7 +1455,7 @@ begin
           else
             Self.ws := 0;
 
-  	  _out(Format('%5.3f Tw', [Self.ws*Self.k], TFPDFFormatSetings));
+  	  _out(Format('%.3f Tw', [Self.ws*Self.k], TFPDFFormatSetings));
   	end;
 
   	Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
@@ -2015,8 +2013,8 @@ begin
   begin
     Name := 'Symbol';
     cw := CW_SYMBOL;
-    fill(uv1, 0);
-    fill(uv2, 0);
+    fill(fuv1, -1);
+    fill(fuv2, -1);
 
     fuv1[032] := 160;
     fuv1[033] := 33;
@@ -2144,8 +2142,8 @@ begin
   begin
     Name := 'ZapfDingbats';
     cw := CW_ZAPFDINGBATS;
-    fill(uv1, 0);
-    fill(uv2, 0);
+    fill(fuv1, -1);
+    fill(fuv2, -1);
 
     fuv1[032] := 32;
     fuv1[033] := 9985;  fuv2[033] := 4;
@@ -2181,10 +2179,24 @@ begin
   end;
 end;
 
-function TFPDF._getpagesize(APageSize: TFPDFPageFormat): TFPDFPageSize;
+function TFPDF._getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize;
 begin
-  Result.w := StdPageSizes[APageSize].w/Self.k;
-  Result.h := StdPageSizes[APageSize].h/Self.k;
+  if (APageSize.w > APageSize.h) then
+  begin
+    Result.h := APageSize.w;
+    Result.w := APageSize.h;
+  end
+  else
+  begin
+    Result.h := APageSize.h;
+    Result.w := APageSize.w;
+  end;
+end;
+
+function TFPDF._getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize;
+begin
+  Result.w := StdPageSizes[APageFormat].w/Self.k;
+  Result.h := StdPageSizes[APageFormat].h/Self.k;
 end;
 
 procedure TFPDF._beginpage(AOrientation: TFPDFOrientation; APageSize: TFPDFPageSize; ARotation: TFPDFRotation);
@@ -2226,7 +2238,9 @@ begin
   if ((AOrientation <> Self.DefOrientation) or (APageSize.w <> Self.DefPageSize.w) or (APageSize.h <> Self.DefPageSize.h)) then
     Self.PageInfo[Self.page-1].Values['size'] := FloatToStr(Self.wPt) + ' ' + FloatToStr(Self.hPt);
 
-  Self.PageInfo[Self.page-1].Values['rotation'] := IntToStr(Integer(ARotation));
+  if (ARotation <> ro0) then
+    Self.PageInfo[Self.page-1].Values['rotation'] := IntToStr(CPDFRotation[ARotation]);
+
   Self.CurRotation := ARotation;
 end;
 
@@ -2347,7 +2361,7 @@ begin
   ut := Self.CurrentFont.ut;
 
   vw := GetStringWidth(vText) + Self.ws * CountStr(vText,' ');
-  Result := Format('%3.2f %3.2f %3.2f %3.2f re f',
+  Result := Format('%.2f %.2f %.2f %.2f re f',
      [vX * Self.k, (Self.h-(vY-up/1000*Self.FontSize))*Self.k, vw*Self.k, -ut/1000*Self.FontSizePt],
      TFPDFFormatSetings);
 end;
@@ -2645,7 +2659,7 @@ begin
   for i := 0 to l-1 do
   begin
     _newobj();
-    rect := Format('%3.2f %3.2f %3.2f %3.2f', [$pl[0],$pl[1],$pl[0]+$pl[2],$pl[1]-$pl[3]);
+    rect := Format('%.2f %.2f %.2f %.2f', [$pl[0],$pl[1],$pl[0]+$pl[2],$pl[1]-$pl[3]);
 		$s = '<</Type /Annot /Subtype /Link /Rect ['.$rect.'] /Border [0 0 0] ';
 		if(is_string($pl[4]))
 			$s .= '/A <</S /URI /URI '.$this->_textstring($pl[4]).'>>>>';
@@ -2681,7 +2695,7 @@ begin
   end;
 
   s := Self.PageInfo[APage-1].Values['rotation'];
-  if (s <> '') then
+  if (s <> '') and (s <> '0') then
     _put('/Rotate '+s);
 
   _put('/Resources 2 0 R');
@@ -2758,7 +2772,7 @@ begin
     vh := Self.DefPageSize.w;
   end;
 
-  _put(Format('/MediaBox [0 0 %8.2f %8.2f]', [vw*Self.k, vh*Self.k], TFPDFFormatSetings));
+  _put(Format('/MediaBox [0 0 %.2f %.2f]', [vw*Self.k, vh*Self.k], TFPDFFormatSetings));
   _put('>>');
   _put('endobj');
 end;
@@ -2924,12 +2938,12 @@ begin
     begin
       if (uv2[i] >= 0) then
       begin
-        ranges := ranges + Format('<%2x> <%2x> <%4x>'+LF, [i, i+uv2[i]-1, uv1[i]]);
+        ranges := ranges + Format('<%.2x> <%.2x> <%.4x>'+LF, [i, i+uv2[i]-1, uv1[i]]);
         Inc(nbr);
       end
       else
       begin
-        chars := chars + Format('<%2x> <%4x>'+LF, [i, uv1[i]]);
+        chars := chars + Format('<%.2x> <%.4x>'+LF, [i, uv1[i]]);
         inc(nbc);
       end;
     end;
@@ -3061,13 +3075,15 @@ begin
 end;
 
 procedure TFPDF._putresourcedict();
+var
+  l, i: Integer;
 begin
   _put('/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
   _put('/Font <<');
-  (* //TODO
-  foreach($this->UsedFonts as $font)
-		$this->_put('/F'.$font['i'].' '.$font['n'].' 0 R');
-  *)
+  l := Length(Self.UsedFonts)-1;
+  for i := 0 to l do
+    _put('/F'+IntToStr(i+1)+' '+IntToStr(Self.UsedFonts[i].n)+' 0 R');
+
   _put('>>');
   _put('/XObject <<');
   _putxobjectdict();
@@ -3120,7 +3136,7 @@ begin
     zmReal: _put('/OpenAction ['+vn+' 0 R /XYZ null null 1]');
     zmCustom:
       if (Self.ZoomFactor > 0) then
-        _put('/OpenAction ['+vn+' 0 R /XYZ null null '+Format('%8.2f', [Self.ZoomFactor/100], TFPDFFormatSetings)+']');
+        _put('/OpenAction ['+vn+' 0 R /XYZ null null '+Format('%.2f', [Self.ZoomFactor/100], TFPDFFormatSetings)+']');
   end;
 
   case Self.LayoutMode of
@@ -3152,6 +3168,7 @@ begin
   _putresources();
 
   // Info
+  Self.CreationDate := Now;
   _newobj();
   _put('<<');
   _putinfo();
@@ -3182,7 +3199,6 @@ begin
   _put(IntToStr(offset));
   _put('%%EOF');
   Self.state := 3;
-  Self.CreationDate := Now;
 
   Self.PageInfo.Clear;
   Self.cmaps.Clear;
@@ -3409,7 +3425,7 @@ begin
   begin
     Inc(i);
     SetLength(Result, i);
-    Result[i-1] := copy(AString, p1, (p2-p1)+1);
+    Result[i-1] := TrimLeft(copy(AString, p1, (p2-p1)+1));
     p1 := p2+1;
     p2 := PosEx(ADelimiter, AString, p1);
   end;
