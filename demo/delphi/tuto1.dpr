@@ -1,0 +1,21 @@
+program tuto1;
+
+uses
+  Classes,
+  fpdf;
+
+var
+  pdf: TFPDF;
+begin
+  pdf := TFPDF.Create();
+  try
+    pdf.SetCompression(False);
+    pdf.AddPage();
+    pdf.SetFont('Arial','B',16);
+    pdf.Cell(40,10,'Hello World!');
+    pdf.SaveToFile('c:\temp\tuto1-pas.pdf');
+  finally
+    pdf.Free;
+  end;
+end.
+

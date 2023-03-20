@@ -79,3 +79,4 @@ modules/
 *.bak
 demo/lazarus/FPDFPascalTeste.pdf
 *.lps
+*.res

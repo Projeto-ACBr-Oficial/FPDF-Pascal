@@ -261,8 +261,8 @@ type
 
     procedure PopulateCoreFonts; virtual;
 
-    function _getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize;
-    function _getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize;
+    function _getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize; overload;
+    function _getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize; overload;
     procedure _beginpage(AOrientation: TFPDFOrientation; APageSize: TFPDFPageSize; ARotation: TFPDFRotation);
     procedure _endpage;
 
@@ -399,7 +399,13 @@ const
   CFontEncodeStr: array[TFPDFFontEncode] of shortstring = ('', 'cp1252');
   CFontType: array[TFPDFFontType] of shortstring =('Core', 'TrueType', 'Type1');
   CPDFRotation: array[TFPDFRotation] of Integer = (0, 90, 180, 270);
-
+  cUNIT: array[TFPDFUnit] of Double = (1, (72 / 25.4), (72 / 2.54), 72, 0.75);
+  cCOLOR: array[TFPDFColor] of array [0..2] of smallint = (
+   (000, 000, 000), (192, 192, 192), (128, 128, 128), (255, 255, 255),
+   (128, 000, 000), (255, 000, 000), (128, 000, 128), (255, 000, 255),
+   (000, 128, 000), (000, 255, 000), (128, 128, 000), (255, 255, 000),
+   (000, 000, 128), (000, 000, 255), (000, 128, 128), (000, 255, 255),
+   (220, 220, 220) );
 
 function SwapBytes(Value: LongWord): LongWord;
 function Split(const AString: string; const ADelimiter: Char = ' '): TStringArray;
@@ -410,41 +416,8 @@ implementation
 uses
   StrUtils, Math;
 
-const
-
-  TFPDFFormatSetings: TFormatSettings = (
-    CurrencyFormat: 1;
-    NegCurrFormat: 5;
-    ThousandSeparator: #0;
-    DecimalSeparator: '.';
-    CurrencyDecimals: 2;
-    DateSeparator: '-';
-    TimeSeparator: ':';
-    ListSeparator: ',';
-    CurrencyString: '$';
-    ShortDateFormat: 'd/m/y';
-    LongDateFormat: 'dd" "mmmm" "yyyy';
-    TimeAMString: 'AM';
-    TimePMString: 'PM';
-    ShortTimeFormat: 'hh:nn';
-    LongTimeFormat: 'hh:nn:ss';
-    ShortMonthNames: ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec');
-    LongMonthNames: ('January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December');
-    ShortDayNames: ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
-    LongDayNames: ('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-    'Friday', 'Saturday');
-    TwoDigitYearCenturyWindow: 50;
-    );
-
-  cUNIT: array[TFPDFUnit] of Double = (1, (72 / 25.4), (72 / 2.54), 72, 0.75);
-  cCOLOR: array[TFPDFColor] of array [0..2] of smallint = (
-   (000, 000, 000), (192, 192, 192), (128, 128, 128), (255, 255, 255),
-   (128, 000, 000), (255, 000, 000), (128, 000, 128), (255, 000, 255),
-   (000, 128, 000), (000, 255, 000), (128, 128, 000), (255, 255, 000),
-   (000, 000, 128), (000, 000, 255), (000, 128, 128), (000, 255, 255),
-   (220, 220, 220) );
+var
+  FPDFFormatSetings: TFormatSettings;
 
 { TFPDFFont }
 
@@ -645,7 +618,7 @@ begin
   Self.fontpath := '';
   s := GetEnvironmentVariable('FPDF_FONTPATH');
   if (s <> '') then
-    Self.fontpath := IncludeLeadingPathDelimiter(s)
+    Self.fontpath := IncludeTrailingPathDelimiter(s)
   else
   begin
     s := ExtractFilePath(ParamStr(0))+PathDelim+'font';
@@ -934,7 +907,7 @@ begin
   _out('2 J');
   //Set line width
   Self.LineWidth := vlw;
-  _out(Format('%.2f', [vlw*Self.k], TFPDFFormatSetings) + ' w');
+  _out(Format('%.2f', [vlw*Self.k], FPDFFormatSetings) + ' w');
 
   //Set font
   if (vfamily <> '') then
@@ -964,7 +937,7 @@ begin
   if (Self.LineWidth <> vlw) then
   begin
     Self.LineWidth := vlw;
-    _out(Format('%.2f', [vlw*Self.k], TFPDFFormatSetings) + ' w');
+    _out(Format('%.2f', [vlw*Self.k], FPDFFormatSetings) + ' w');
   end;
 
   //Restore font
@@ -1015,9 +988,9 @@ procedure TFPDF.SetDrawColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for all stroking operations
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.DrawColor := Format('%.3f', [ValR / 255], TFPDFFormatSetings)+' G'
+    Self.DrawColor := Format('%.3f', [ValR / 255], FPDFFormatSetings)+' G'
   else
-    Self.DrawColor := Format('%.3f %.3f %.3f RG', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
+    Self.DrawColor := Format('%.3f %.3f %.3f RG', [ValR / 255, ValG / 255, ValB / 255], FPDFFormatSetings);
 
   if (Self.page > 0) then
     _out(Self.DrawColor);
@@ -1032,9 +1005,9 @@ procedure TFPDF.SetFillColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for all stroking operations
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.FillColor := Format('%.3f', [ValR / 255], TFPDFFormatSetings)+' g'
+    Self.FillColor := Format('%.3f', [ValR / 255], FPDFFormatSetings)+' g'
   else
-    Self.FillColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
+    Self.FillColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], FPDFFormatSetings);
 
   if (Self.page > 0) then
     _out(Self.FillColor);
@@ -1049,9 +1022,9 @@ procedure TFPDF.SetTextColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for text
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.TextColor := Format('%.3f', [ValR / 255], TFPDFFormatSetings)+' g'
+    Self.TextColor := Format('%.3f', [ValR / 255], FPDFFormatSetings)+' g'
   else
-    Self.TextColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], TFPDFFormatSetings);
+    Self.TextColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], FPDFFormatSetings);
 
   Self.ColorFlag := (Self.FillColor <> Self.TextColor);
 end;
@@ -1085,13 +1058,13 @@ begin
   //Set line width
   Self.LineWidth := vWidth;
   if (Self.page > 0) then
-    _out(Format('%.2f', [vWidth*Self.k], TFPDFFormatSetings) + ' w');
+    _out(Format('%.2f', [vWidth*Self.k], FPDFFormatSetings) + ' w');
 end;
 
 procedure TFPDF.Line(vX1, vY1, vX2, vY2: Double);
 begin
   //Draw a line
-  _out(Format('%.2f %.2f m %.2f %.2f l S', [vX1*Self.k, (Self.h-vY1)*Self.k, vX2*Self.k, (Self.h-vY2)*Self.k], TFPDFFormatSetings));
+  _out(Format('%.2f %.2f m %.2f %.2f l S', [vX1*Self.k, (Self.h-vY1)*Self.k, vX2*Self.k, (Self.h-vY2)*Self.k], FPDFFormatSetings));
 end;
 
 procedure TFPDF.Rect(vX, vY, vWidht, vHeight: Double; const vStyle: String);
@@ -1107,7 +1080,7 @@ begin
   else
     vop := 'S';
 
-  _out(Format('%.2f %.2f %.2f %.2f re %s', [vX*Self.k, (Self.h-vY)*Self.k, vWidht*Self.k, -vHeight*Self.k, vop], TFPDFFormatSetings));
+  _out(Format('%.2f %.2f %.2f %.2f re %s', [vX*Self.k, (Self.h-vY)*Self.k, vWidht*Self.k, -vHeight*Self.k, vop], FPDFFormatSetings));
 end;
 
 procedure TFPDF.AddFont(AFamily: String; AStyle: String; AFile: String);
@@ -1208,7 +1181,7 @@ begin
   end;
 
   if (Self.page > 0) then
-    _out(Format('BT /F%d %.2f Tf ET', [FontIndex, Self.FontSizePt], TFPDFFormatSetings));
+    _out(Format('BT /F%d %.2f Tf ET', [FontIndex, Self.FontSizePt], FPDFFormatSetings));
 end;
 
 procedure TFPDF.SetFontSize(ASize: Double; fUnderline: Boolean);
@@ -1220,7 +1193,7 @@ begin
   Self.FontSizePt := ASize;
   Self.FontSize := (ASize/Self.k);
   if ((Self.page > 0) and Assigned(Self.CurrentFont)) then
-    _out(Format('BT /F%d %.2f Tf ET', [Fonts.IndexOf(Self.CurrentFont), Self.FontSizePt], TFPDFFormatSetings));
+    _out(Format('BT /F%d %.2f Tf ET', [Fonts.IndexOf(Self.CurrentFont), Self.FontSizePt], FPDFFormatSetings));
 end;
 
 procedure TFPDF.AddLink;
@@ -1261,7 +1234,7 @@ begin
   if not Assigned(Self.CurrentFont) then
      Error('No font has been set');
 
-  s := Format('BT %.2f %.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(vText)], TFPDFFormatSetings);
+  s := Format('BT %.2f %.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(vText)], FPDFFormatSetings);
   if ( Self.underline and (vText <> '') ) then
     s := s + ' ' + Self._dounderline(vX, vY, vText);
 
@@ -1303,7 +1276,7 @@ begin
     if (vws > 0) then
     begin
       Self.ws := vws;
-      _out(Format('%.3f Tw', [vws*vk], TFPDFFormatSetings));
+      _out(Format('%.3f Tw', [vws*vk], FPDFFormatSetings));
     end;
   end;
 
@@ -1318,23 +1291,23 @@ begin
     else
       vop := 'S';
 
-    s := Format('%.2f %.2f %.2f %.2f re %s ', [Self.x*vk, (Self.h-Self.y)*vk, vWidth*vk, -vHeight*vk, vop], TFPDFFormatSetings);
+    s := Format('%.2f %.2f %.2f %.2f re %s ', [Self.x*vk, (Self.h-Self.y)*vk, vWidth*vk, -vHeight*vk, vop], FPDFFormatSetings);
   end;
 
   vx := Self.x;
   vy := Self.y;
 
   if (pos('L', vBorder) > 0) then
-    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-vy)*vk, vx*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-vy)*vk, vx*vk, (Self.h-(vy+vHeight))*vk], FPDFFormatSetings);
 
   if (pos('T', vBorder) > 0) then
-    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-vy)*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-vy)*vk], FPDFFormatSetings);
 
   if (pos('R', vBorder) > 0) then
-    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [(vx+vWidth)*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [(vx+vWidth)*vk, (Self.h-vy)*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], FPDFFormatSetings);
 
   if (pos('B', vBorder) > 0) then
-    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-(vy+vHeight))*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], TFPDFFormatSetings);
+    s := s + Format('%.2f %.2f m %.2f %.2f l S ', [vx*vk, (Self.h-(vy+vHeight))*vk, (vx+vWidth)*vk, (Self.h-(vy+vHeight))*vk], FPDFFormatSetings);
 
   if (vText <> '') then
   begin
@@ -1351,7 +1324,7 @@ begin
     if Self.ColorFlag then
       s := s + 'q ' + Self.TextColor + ' ';
 
-    s := s + Format('BT %.2f %.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(vText)], TFPDFFormatSetings);
+    s := s + Format('BT %.2f %.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(vText)], FPDFFormatSetings);
     if Self.underline then
       s := s + ' '+Self._dounderline(Self.x+vdx, Self.y+0.5*vHeight+0.3*Self.FontSize, vText);
 
@@ -1487,7 +1460,7 @@ begin
           else
             Self.ws := 0;
 
-  	  _out(Format('%.3f Tw', [Self.ws*Self.k], TFPDFFormatSetings));
+  	  _out(Format('%.3f Tw', [Self.ws*Self.k], FPDFFormatSetings));
   	end;
 
   	Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
@@ -1631,7 +1604,7 @@ begin
     Self.y := Self.y + vHeight;
 end;
 
-procedure TFPDF.Image(const vFileOrURL: String; vX: Double; vY: Double;       (* //TODO VERIFICAR *)
+procedure TFPDF.Image(const vFileOrURL: String; vX: Double; vY: Double;
   vWidth: Double; vHeight: Double; const vLink: String);
 var
   i, l: Integer;
@@ -1668,7 +1641,7 @@ begin
   Image(img, vX, vY, vWidth, vHeight);
 end;
 
-procedure TFPDF.Image(vImageStream: TStream; const vTypeImageExt: String;  (* //TODO VERIFICAR *)
+procedure TFPDF.Image(vImageStream: TStream; const vTypeImageExt: String;
   vX: Double; vY: Double; vWidth: Double; vHeight: Double; const vLink: String);
 var
   l: Integer;
@@ -2375,7 +2348,7 @@ begin
   vw := GetStringWidth(vText) + Self.ws * CountStr(vText,' ');
   Result := Format('%.2f %.2f %.2f %.2f re f',
      [vX * Self.k, (Self.h-(vY-up/1000*Self.FontSize))*Self.k, vw*Self.k, -ut/1000*Self.FontSizePt],
-     TFPDFFormatSetings);
+     FPDFFormatSetings);
 end;
 
 function TFPDF._parsejpg(vImageStream: TStream): TFPDFImageInfo;
@@ -2401,12 +2374,11 @@ end;
 
 function TFPDF._parsepng(vImageStream: TStream): TFPDFImageInfo;
 var
-  ChunkType: String;
-  data, s, color, alpha, aline, ChunkData: AnsiString;
+  data, s, color, alpha, aline, ChunkType, ChunkData: AnsiString;
   Width, Height, LenChunk, LenWidth, LenLine, p, i, j: LongWord;
   BitDepth, ColorType, CompressionMethod, FilterMethod, InterlaceMethod: Byte;
 
-  procedure ReadNextChunk(S: TStream; out ChunckType: String; out ChunkData: AnsiString);
+  procedure ReadNextChunk(S: TStream; out ChunckType: AnsiString; out ChunkData: AnsiString);
   var
     Len: LongWord;
     crc: AnsiString;
@@ -2415,7 +2387,7 @@ var
     ChunckType := '';
     ChunkData := '';
     S.ReadBuffer(Len, SizeOf(Len));  // 4 bytes
-    Len := SwapEndian(Len);
+    Len := SwapBytes(Len);
     SetLength(ChunckType, 4);
     S.ReadBuffer(ChunckType[1], 4);
     if (Len > 0) then
@@ -2456,10 +2428,10 @@ begin
 
   Width := 0;
   Move(ChunkData[1], Width, 4);
-  Width := SwapEndian(Width);
+  Width := SwapBytes(Width);
   Height := 0;
   Move(ChunkData[5], Height, 4);
-  Height := SwapEndian(Height);
+  Height := SwapBytes(Height);
   BitDepth := Byte(ChunkData[9]);
   ColorType := Byte(ChunkData[10]);
   CompressionMethod := Byte(ChunkData[11]);
@@ -2712,7 +2684,7 @@ begin
   begin
     PageSizeInfo := Split(s);
     if (Length(PageSizeInfo) > 1) then
-      _put(Format('/MediaBox [0 0 %s %s]', [PageSizeInfo[0],PageSizeInfo[1]], TFPDFFormatSetings));
+      _put(Format('/MediaBox [0 0 %s %s]', [PageSizeInfo[0],PageSizeInfo[1]], FPDFFormatSetings));
   end;
 
   s := Self.PageInfo[APage-1].Values['rotation'];
@@ -2793,7 +2765,7 @@ begin
     vh := Self.DefPageSize.w;
   end;
 
-  _put(Format('/MediaBox [0 0 %.2f %.2f]', [vw*Self.k, vh*Self.k], TFPDFFormatSetings));
+  _put(Format('/MediaBox [0 0 %.2f %.2f]', [vw*Self.k, vh*Self.k], FPDFFormatSetings));
   _put('>>');
   _put('endobj');
 end;
@@ -3157,7 +3129,7 @@ begin
     zmReal: _put('/OpenAction ['+vn+' 0 R /XYZ null null 1]');
     zmCustom:
       if (Self.ZoomFactor > 0) then
-        _put('/OpenAction ['+vn+' 0 R /XYZ null null '+Format('%.2f', [Self.ZoomFactor/100], TFPDFFormatSetings)+']');
+        _put('/OpenAction ['+vn+' 0 R /XYZ null null '+Format('%.2f', [Self.ZoomFactor/100], FPDFFormatSetings)+']');
   end;
 
   case Self.LayoutMode of
@@ -3209,7 +3181,7 @@ begin
   _put('0 '+IntToStr(Self.n+1));
   _put('0000000000 65535 f ');
   for i := 0 to Self.n-1 do
-    _put(Format('%.10d 00000 n ', [Self.offsets[i]], TFPDFFormatSetings));
+    _put(Format('%.10d 00000 n ', [Self.offsets[i]], FPDFFormatSetings));
 
   // Trailer
   _put('trailer');
@@ -3233,11 +3205,11 @@ end;
 
 function TFPDF.FloatToStr(Value: Double): String;
 begin
-  Result := SysUtils.FloatToStr(Value, TFPDFFormatSetings);
+  Result := SysUtils.FloatToStr(Value, FPDFFormatSetings);
 end;
 
 {$IfDef USESYNAPSE}
-procedure TJPFpdf.GetImageFromURL(const aURL: String; const aResponse: TStream);
+procedure TFPDF.GetImageFromURL(const aURL: String; const aResponse: TStream);
 var
   vHTTP: THTTPSend;
   Ok: Boolean;
@@ -3284,6 +3256,7 @@ begin
     vHTTP.Free;
   end;
 end;
+{$EndIf}
 
 procedure TFPDF.Image(img: TFPDFImageInfo; vX: Double; vY: Double;
   vWidth: Double; vHeight: Double; const vLink: String);
@@ -3328,7 +3301,7 @@ begin
   if (vX = -9999) then
     vX := Self.x;
 
-  _out(Format('q %.2f 0 0 %.2f %.2f %.2f cm /I%d Do Q', [vWidth*Self.k, vHeight*Self.k, vX*Self.k, (Self.h-(vY+vHeight))*Self.k, img.i], TFPDFFormatSetings));
+  _out(Format('q %.2f 0 0 %.2f %.2f %.2f cm /I%d Do Q', [vWidth*Self.k, vHeight*Self.k, vX*Self.k, (Self.h-(vY+vHeight))*Self.k, img.i], FPDFFormatSetings));
   if (vLink <> '') then
     Link(vX, vY, vWidth, vHeight, vLink);
 end;
@@ -3346,9 +3319,6 @@ begin
   Self.StdPageSizes[pfLegal].w := 612;
   Self.StdPageSizes[pfLegal].h := 1008;
 end;
-
-{$EndIf}
-
 
 {%region Image Handle and Conversion}
 
@@ -3517,445 +3487,25 @@ begin
   end;
 end;
 
+initialization
+  with FPDFFormatSetings do
+  begin
+    CurrencyString := '$';
+    CurrencyFormat := 1;
+    CurrencyDecimals := 2;
+    DateSeparator := '-';
+    TimeSeparator := ':';
+    ListSeparator := ',';
+    ShortDateFormat := 'd/m/y';
+    LongDateFormat := 'dd" "mmmm" "yyyy';
+    TimeAMString := 'AM';
+    TimePMString := 'PM';
+    ShortTimeFormat := 'hh:nn';
+    LongTimeFormat := 'hh:nn:ss';
+    ThousandSeparator := #0;
+    DecimalSeparator := '.';
+    TwoDigitYearCenturyWindow := 50;
+    NegCurrFormat := 5;
+  end;
 end.
 
-
-(*
-//protected
-    OrientationChanges: array of Boolean; // array indicating orientation changes
-
-    pUTF8: Boolean;                       // Set Utf8ToAnsi to suport unicode
-    DocTitle: String;                     // title
-    DocSubject: String;                   // subject
-    DocAuthor: String;                    // author
-    DocKeywords: String;                  // keywords
-    DocCreator: String;                   // creator
-    DocAliasNbPages: String;              // alias for total number of pages
-    Jpdf_charwidths: array[TFPDFFontFamily] of array[TFPDFFontStyle] of TFPDFFontInfo;     // widths of the characters of fonts
-
-
-
-
-
-//Set display mode in viewer
-if (mode = dmZoom) then
-  Self.DocDisplayMode := IntToStr(zoom)
-else
-  Self.DocDisplayMode := JDISPLAYMODE[mode];
-
-
-
-  procedure TFPDF.Code25(vXPos, vYPos: Double; const vTextCode: String;
-    vBaseWidth: Double; vHeight: Double; vViewNum: Boolean;
-    vZeroWhenInvalidDigit: Boolean);
-
-    procedure CheckIsAValidChar25(var AChar: Char);
-    begin
-      if not (Ord(AChar) in [48..57, 65, 90]) then
-      begin
-        if vZeroWhenInvalidDigit then
-          AChar := '0'
-        else
-          Error('Invalid character in Barcode 2of5: ' + AChar);
-      end;
-    end;
-
-  var
-    vbarChar: array[48..90] of String;
-    vnarrow, vwide, vlineWidth: Double;
-    vi, vs, vbar: Integer;
-    vcharBar, vcharSpace: char;
-    vseq, sText: String;
-  begin
-    sText := _EncodeText(vTextCode);
-    vwide := vBaseWidth;
-    vnarrow := vBaseWidth / 3;
-
-    // wide/narrow codes for the digits
-    vbarChar[48] := 'nnwwn';  // 0
-    vbarChar[49] := 'wnnnw';  // 1
-    vbarChar[50] := 'nwnnw';  // 2
-    vbarChar[51] := 'wwnnn';  // 3
-    vbarChar[52] := 'nnwnw';  // 4
-    vbarChar[53] := 'wnwnn';  // 5
-    vbarChar[54] := 'nwwnn';  // 6
-    vbarChar[55] := 'nnnww';  // 7
-    vbarChar[56] := 'wnnwn';  // 8
-    vbarChar[57] := 'nwnwn';  // 9
-    vbarChar[65] := 'nn';     // A
-    vbarChar[90] := 'wn';     // Z
-
-    // add leading zero if code-length is odd
-    if (Length(sText) mod 2 <> 0) then
-      sText := '0' + sText;
-
-    if vViewNum then
-    begin
-      SetFont(ffHelvetica, fsNormal, 10);
-      Text(vXPos, vYPos + vHeight + 4, sText);
-    end;
-
-    SetFillColor(0);
-
-    // add start and stop codes
-    sText := 'AA' + LowerCase(sText) + 'ZA';
-    vi := 0;
-    while (vi < Length(sText)) do
-    begin
-      // choose next pair of digits
-      vcharBar := sText[vi + 1];
-      vcharSpace := sText[vi + 2];
-
-      // check whether it is a valid digit
-      CheckIsAValidChar25(vcharBar);
-      CheckIsAValidChar25(vcharSpace);
-
-      // create a wide/narrow-sequence (first digit=bars, second digit=spaces)
-      vseq := '';
-      for vs := 0 to Length(vbarChar[Ord(vcharBar)]) - 1 do
-        vseq := vseq + vbarChar[Ord(vcharBar)][vs + 1] + vbarChar[Ord(vcharSpace)][vs + 1];
-
-      for vbar := 0 to Length(vseq) - 1 do
-      begin
-        // set lineWidth depending on value
-        if (vseq[vbar + 1] = 'n') then
-          vlineWidth := vnarrow
-        else
-          vlineWidth := vwide;
-
-        // draw every second value, because the second digit of the pair is represented by the spaces
-        if (vbar mod 2 = 0) then
-          Self.Rect(vXPos, vYPos, vlineWidth, vHeight, 'F');
-
-        vXPos := vXPos + vlineWidth;
-      end;
-
-      vi := vi + 2;
-    end;
-  end;
-
-  procedure TFPDF.Code128(vXPos, vYPos: Double; const vTextCode: String;
-    vWidth: Double; vHeight: Double);
-  var
-    Aguid, Bguid, Cguid, needle, Aset, Bset, Cset, SminiC, crypt, ABCset, sText: String;
-    I, J, IminiC, made, madeA, madeB, check: Integer;
-    jeu: TFPDFBarCode128;
-    modul: Double;
-    SetTo: array [TFPDFBarCode128] of String;
-    SetFrom: array [TFPDFBarCode128] of String;
-    C: array of Integer;
-
-    procedure InitCode128Table;
-    var
-      H: Integer;
-    begin
-      // character sets
-      for H := 32 to 95 do
-        ABCset := ABCset + chr(H);
-
-      Aset := ABCset;
-      Bset := ABCset;
-
-      for H := 0 to 31 do
-      begin
-        ABCset := ABCset + chr(H);
-        Aset := Aset + chr(H);
-      end;
-
-      for H := 96 to 127 do
-      begin
-        ABCset := ABCset + chr(H);
-        Bset := Bset + chr(H);
-      end;
-
-      // control 128
-      for H := 200 to 210 do
-      begin
-        ABCset := ABCset + chr(H);
-        Aset := Aset + chr(H);
-        Bset := Bset + chr(H);
-      end;
-
-      Cset := '0123456789' + chr(206);
-
-      // converters of A & B sets
-      for H := 0 to 95 do
-      begin
-        SetFrom[pdfbcCode128A] := SetFrom[pdfbcCode128A] + chr(H);
-        SetFrom[pdfbcCode128B] := SetFrom[pdfbcCode128B] + chr(H + 32);
-        SetTo[pdfbcCode128A] := SetTo[pdfbcCode128A] +
-          chr(ifthen((H < 32), H + 64, H - 32));
-        SetTo[pdfbcCode128B] := SetTo[pdfbcCode128B] + chr(H);
-      end;
-
-      // control of A & B sets
-      for H := 96 to 106 do
-      begin
-        SetFrom[pdfbcCode128A] := SetFrom[pdfbcCode128A] + chr(H + 104);
-        SetFrom[pdfbcCode128B] := SetFrom[pdfbcCode128B] + chr(H + 104);
-        SetTo[pdfbcCode128A] := SetTo[pdfbcCode128A] + chr(H);
-        SetTo[pdfbcCode128B] := SetTo[pdfbcCode128B] + chr(H);
-      end;
-    end;
-
-  begin
-    //TODO: Corrigir os tipos A e B http://www.fpdf.org/en/script/script88.php
-    InitCode128Table;
-    sText := vTextCode;
-
-    Aguid := '';
-    Bguid := '';
-    Cguid := '';
-    // Creation of ABC choice guides
-    for I := 0 to Length(sText) - 1 do
-    begin
-      needle := Copy(sText, I + 1, 1);
-      Aguid := Aguid + IfThen((Pos(needle, Aset) <= 0), 'N', 'O');
-      Bguid := Bguid + IfThen((Pos(needle, Bset) <= 0), 'N', 'O');
-      Cguid := Cguid + IfThen((Pos(needle, Cset) <= 0), 'N', 'O');
-    end;
-
-    SminiC := 'OOOO';
-    IminiC := 4;
-    crypt := '';
-    C := [];
-
-    // MAIN CODING LOOP
-    while Length(sText) > 0 do
-    begin
-
-      // forcing of set C, if possible
-      I := Pos(SminiC, Cguid);
-      if (I > 0) then
-      begin
-        Aguid[I] := 'N';
-        Bguid[I] := 'N';
-      end;
-
-      // set C
-      if (Copy(Cguid, 1, IminiC) = SminiC) then
-      begin
-        // start Cstart, otherwise Cswap
-        crypt := crypt + chr(StrToInt(
-          IfThen((Length(crypt) > 0), IntToStr(cBC128Swap[pdfbcCode128C]),
-          IntToStr(cBC128Start[pdfbcCode128C]))));
-
-        // extended from set C
-        made := Pos('N', Cguid);
-        if (made <= 0) then
-          made := Length(Cguid);
-
-        // only an even number
-        if ((made mod 2) = 1) then
-          made := made - 1;
-
-        I := 0;
-        while I <= (made - 1) do
-        begin
-          // 2 by 2 conversion
-          crypt := crypt + chr(StrToInt(Copy(sText, I + 1, 2)));
-          I := I + 2;
-        end;
-
-        jeu := pdfbcCode128C;
-      end
-      else
-      begin
-        // extended from set A
-        madeA := Pos('N', Aguid);
-        if (madeA <= 0) then
-          madeA := Length(Aguid);
-
-        // extended from set B
-        madeB := Pos('N', Bguid);
-        if (madeB <= 0) then
-          madeB := Length(Bguid);
-
-        // extended processed
-        made := IfThen((madeA < madeB), madeB, madeA);
-
-        // Set in progress
-        if (madeA < madeB) then
-          jeu := pdfbcCode128B
-        else
-          jeu := pdfbcCode128A;
-
-        // start start, otherwise swap
-        crypt := crypt + chr(StrToInt(IfThen((Length(crypt) > 0),
-          IntToStr(cBC128Swap[jeu]), IntToStr(cBC128Start[jeu]))));
-
-        // conversion according to set
-        crypt := crypt + StringReplace(Copy(sText, 1, made),
-          SetFrom[jeu], SetTo[jeu], []);
-      end;
-
-      // shorten the legend and guides of the treated area
-      sText := Copy(sText, made + 1, Length(sText));
-      Aguid := Copy(Aguid, made + 1, Length(Aguid));
-      Bguid := Copy(Bguid, made + 1, Length(Bguid));
-      Cguid := Copy(Cguid, made + 1, Length(Cguid));
-    end; // END MAIN LOOP
-
-    // calculate the checksum
-    check := Ord(crypt[1]);
-
-    for I := 0 to Length(crypt) - 1 do
-      check := check + (Ord(crypt[I + 1]) * I);
-
-    check := check mod 103;
-
-    // Complete encrypted chain
-    crypt := crypt + chr(check) + chr(106) + chr(107);
-
-    // calculate the width of the module
-    I := (Length(crypt) * 11) - 8;
-    modul := vWidth / I;
-
-    // PRINT LOOP
-    for I := 0 to Length(crypt) - 1 do
-    begin
-      SetLength(C, Length(cBC128[Ord(crypt[I + 1])]));
-      //D C := JBC128[ord(crypt[I+1])];
-      J := 0;
-      while (J <= (Length(C) - 1)) do
-      begin
-        if C[J] = 0 then
-        begin
-          J := J + 1;
-          Continue;
-        end;
-
-        Self.Rect(vXPos, vYPos, C[J] * modul, vHeight, 'F');
-
-        //not at the last position
-        if not (J = Length(C) - 1) then
-          vXPos := vXPos + (C[J] + C[J + 1]) * modul;
-
-        J := J + 2;
-      end;
-    end;
-  end;
-
-  cBC128Start: array[TFPDFBarCode128] of smallint = (103, 104, 105);
-  // Set selection characters at the start of C128
-  cBC128Swap: array[TFPDFBarCode128] of smallint = (101, 100, 99);
-  // Set change characters
-  cBC128: array [0..107, 0..5] of Integer =                         // Code table 128
-    (
-    (2, 1, 2, 2, 2, 2),           //0 : [ ]
-    (2, 2, 2, 1, 2, 2),           //1 : [!]
-    (2, 2, 2, 2, 2, 1),           //2 : ["]
-    (1, 2, 1, 2, 2, 3),           //3 : [#]
-    (1, 2, 1, 3, 2, 2),           //4 : [$]
-    (1, 3, 1, 2, 2, 2),           //5 : [%]
-    (1, 2, 2, 2, 1, 3),           //6 : [&]
-    (1, 2, 2, 3, 1, 2),           //7 : [']
-    (1, 3, 2, 2, 1, 2),           //8 : [(]
-    (2, 2, 1, 2, 1, 3),           //9 : [)]
-    (2, 2, 1, 3, 1, 2),           //10 : [*]
-    (2, 3, 1, 2, 1, 2),           //11 : [+]
-    (1, 1, 2, 2, 3, 2),           //12 : [,]
-    (1, 2, 2, 1, 3, 2),           //13 : [-]
-    (1, 2, 2, 2, 3, 1),           //14 : [.]
-    (1, 1, 3, 2, 2, 2),           //15 : [/]
-    (1, 2, 3, 1, 2, 2),           //16 : [0]
-    (1, 2, 3, 2, 2, 1),           //17 : [1]
-    (2, 2, 3, 2, 1, 1),           //18 : [2]
-    (2, 2, 1, 1, 3, 2),           //19 : [3]
-    (2, 2, 1, 2, 3, 1),           //20 : [4]
-    (2, 1, 3, 2, 1, 2),           //21 : [5]
-    (2, 2, 3, 1, 1, 2),           //22 : [6]
-    (3, 1, 2, 1, 3, 1),           //23 : [7]
-    (3, 1, 1, 2, 2, 2),           //24 : [8]
-    (3, 2, 1, 1, 2, 2),           //25 : [9]
-    (3, 2, 1, 2, 2, 1),           //26 : [:]
-    (3, 1, 2, 2, 1, 2),           //27 : [,]
-    (3, 2, 2, 1, 1, 2),           //28 : [<]
-    (3, 2, 2, 2, 1, 1),           //29 : [=]
-    (2, 1, 2, 1, 2, 3),           //30 : [>]
-    (2, 1, 2, 3, 2, 1),           //31 : [?]
-    (2, 3, 2, 1, 2, 1),           //32 : [@]
-    (1, 1, 1, 3, 2, 3),           //33 : [A]
-    (1, 3, 1, 1, 2, 3),           //34 : [B]
-    (1, 3, 1, 3, 2, 1),           //35 : [C]
-    (1, 1, 2, 3, 1, 3),           //36 : [D]
-    (1, 3, 2, 1, 1, 3),           //37 : [E]
-    (1, 3, 2, 3, 1, 1),           //38 : [F]
-    (2, 1, 1, 3, 1, 3),           //39 : [G]
-    (2, 3, 1, 1, 1, 3),           //40 : [H]
-    (2, 3, 1, 3, 1, 1),           //41 : [I]
-    (1, 1, 2, 1, 3, 3),           //42 : [J]
-    (1, 1, 2, 3, 3, 1),           //43 : [K]
-    (1, 3, 2, 1, 3, 1),           //44 : [L]
-    (1, 1, 3, 1, 2, 3),           //45 : [M]
-    (1, 1, 3, 3, 2, 1),           //46 : [N]
-    (1, 3, 3, 1, 2, 1),           //47 : [O]
-    (3, 1, 3, 1, 2, 1),           //48 : [P]
-    (2, 1, 1, 3, 3, 1),           //49 : [Q]
-    (2, 3, 1, 1, 3, 1),           //50 : [R]
-    (2, 1, 3, 1, 1, 3),           //51 : [S]
-    (2, 1, 3, 3, 1, 1),           //52 : [T]
-    (2, 1, 3, 1, 3, 1),           //53 : [U]
-    (3, 1, 1, 1, 2, 3),           //54 : [V]
-    (3, 1, 1, 3, 2, 1),           //55 : [W]
-    (3, 3, 1, 1, 2, 1),           //56 : [X]
-    (3, 1, 2, 1, 1, 3),           //57 : [Y]
-    (3, 1, 2, 3, 1, 1),           //58 : [Z]
-    (3, 3, 2, 1, 1, 1),           //59 : [[]
-    (3, 1, 4, 1, 1, 1),           //60 : [\]
-    (2, 2, 1, 4, 1, 1),           //61 : []]
-    (4, 3, 1, 1, 1, 1),           //62 : [^]
-    (1, 1, 1, 2, 2, 4),           //63 : [_]
-    (1, 1, 1, 4, 2, 2),           //64 : [`]
-    (1, 2, 1, 1, 2, 4),           //65 : [a]
-    (1, 2, 1, 4, 2, 1),           //66 : [b]
-    (1, 4, 1, 1, 2, 2),           //67 : [c]
-    (1, 4, 1, 2, 2, 1),           //68 : [d]
-    (1, 1, 2, 2, 1, 4),           //69 : [e]
-    (1, 1, 2, 4, 1, 2),           //70 : [f]
-    (1, 2, 2, 1, 1, 4),           //71 : [g]
-    (1, 2, 2, 4, 1, 1),           //72 : [h]
-    (1, 4, 2, 1, 1, 2),           //73 : [i]
-    (1, 4, 2, 2, 1, 1),           //74 : [j]
-    (2, 4, 1, 2, 1, 1),           //75 : [k]
-    (2, 2, 1, 1, 1, 4),           //76 : [l]
-    (4, 1, 3, 1, 1, 1),           //77 : [m]
-    (2, 4, 1, 1, 1, 2),           //78 : [n]
-    (1, 3, 4, 1, 1, 1),           //79 : [o]
-    (1, 1, 1, 2, 4, 2),           //80 : [p]
-    (1, 2, 1, 1, 4, 2),           //81 : [q]
-    (1, 2, 1, 2, 4, 1),           //82 : [r]
-    (1, 1, 4, 2, 1, 2),           //83 : [s]
-    (1, 2, 4, 1, 1, 2),           //84 : [t]
-    (1, 2, 4, 2, 1, 1),           //85 : [u]
-    (4, 1, 1, 2, 1, 2),           //86 : [v]
-    (4, 2, 1, 1, 1, 2),           //87 : [w]
-    (4, 2, 1, 2, 1, 1),           //88 : [x]
-    (2, 1, 2, 1, 4, 1),           //89 : [y]
-    (2, 1, 4, 1, 2, 1),           //90 : [z]
-    (4, 1, 2, 1, 2, 1),           //91 : [{]
-    (1, 1, 1, 1, 4, 3),           //92 : [|]
-    (1, 1, 1, 3, 4, 1),           //93 : [}]
-    (1, 3, 1, 1, 4, 1),           //94 : [~]
-    (1, 1, 4, 1, 1, 3),           //95 : [DEL]
-    (1, 1, 4, 3, 1, 1),           //96 : [FNC3]
-    (4, 1, 1, 1, 1, 3),           //97 : [FNC2]
-    (4, 1, 1, 3, 1, 1),           //98 : [SHIFT]
-    (1, 1, 3, 1, 4, 1),           //99 : [Cswap]
-    (1, 1, 4, 1, 3, 1),           //100 : [Bswap]
-    (3, 1, 1, 1, 4, 1),           //101 : [Aswap]
-    (4, 1, 1, 1, 3, 1),           //102 : [FNC1]
-    (2, 1, 1, 4, 1, 2),           //103 : [Astart]
-    (2, 1, 1, 2, 1, 4),           //104 : [Bstart]
-    (2, 1, 1, 2, 3, 2),           //105 : [Cstart]
-    (2, 3, 3, 1, 1, 1),           //106 : [STOP]
-    (2, 1, 0, 0, 0, 0)            //107 : [END BAR]
-    );
-
-
-      TFPDFBarCode128 = (pdfbcCode128A, pdfbcCode128B, pdfbcCode128C);
-
-
-        cFONTSTYLE: array[TFPDFFontStyle] of shortString =
-    ('', '-Bold', '-Oblique', '-BoldOblique');
-*)
