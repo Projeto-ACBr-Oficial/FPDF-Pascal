@@ -1005,9 +1005,11 @@ procedure TFPDF.SetFillColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for all stroking operations
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.FillColor := Format('%.3f', [ValR / 255], FPDFFormatSetings)+' g'
+    Self.FillColor := Format('%.3f g', [ValR / 255], FPDFFormatSetings)
   else
     Self.FillColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], FPDFFormatSetings);
+
+  Self.ColorFlag := (Self.FillColor <> Self.TextColor);
 
   if (Self.page > 0) then
     _out(Self.FillColor);
@@ -1022,7 +1024,7 @@ procedure TFPDF.SetTextColor(ValR: Integer; ValG: Integer; ValB: Integer);
 begin
   //Set color for text
   if (((ValR = 0) and (ValG = 0) and (ValB = 0)) or (ValG < 0)) then
-    Self.TextColor := Format('%.3f', [ValR / 255], FPDFFormatSetings)+' g'
+    Self.TextColor := Format('%.3f g', [ValR / 255], FPDFFormatSetings)
   else
     Self.TextColor := Format('%.3f %.3f %.3f rg', [ValR / 255, ValG / 255, ValB / 255], FPDFFormatSetings);
 

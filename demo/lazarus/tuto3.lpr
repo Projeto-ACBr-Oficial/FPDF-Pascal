@@ -15,7 +15,7 @@ type
 
   TMyFPDF = class(TFPDF)
   public
-    Title: String;
+    TheTitle: String;
 
     procedure Header; override;
     procedure Footer; override;
@@ -34,8 +34,8 @@ var
 begin
   // Arial bold 15
   SetFont('Arial','B',15);
-  // Calculate width of title and position
-  vw := GetStringWidth(Title)+6;
+  // Calculate width of TheTitle and position
+  vw := GetStringWidth(TheTitle)+6;
   SetX((210-vw)/2);
   // Colors of frame, background and text
   SetDrawColor(0,80,180);
@@ -43,8 +43,8 @@ begin
   SetTextColor(220,50,50);
   // Thickness of frame (1 mm)
   SetLineWidth(1);
-  // Title
-  Cell(vw, 9, Title, '1', 1, 'C', true);
+  // TheTitle
+  Cell(vw, 9, TheTitle, '1', 1, 'C', true);
   // Line break
   Ln(10);
 end;
@@ -67,7 +67,7 @@ begin
   SetFont('Arial','',12);
   // Background color
   SetFillColor(200,220,255);
-  // Title
+  // TheTitle
   Cell( 0, 6, 'Chapter '+IntToStr(Anum)+' : '+Alabel, '0', 1, 'L', true);
   // Line break
   Ln(4);
@@ -106,8 +106,8 @@ begin
 
   pdf := TMyFPDF.Create;
   try
-    pdf.Title := '20000 Leagues Under the Seas';
-    pdf.SetTitle(pdf.Title);
+    pdf.TheTitle := '20000 Leagues Under the Seas';
+    pdf.SetTitle(pdf.TheTitle);
     pdf.SetAuthor('Jules Verne');
     pdf.PrintChapter( 1, 'A RUNAWAY REEF', '20k_c1.txt');
     pdf.PrintChapter( 2, 'THE PROS AND CONS', '20k_c2.txt');
