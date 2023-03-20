@@ -87,10 +87,10 @@ type
   TStringArray = array of string;
 
   TFPDFImageInfo = record
+    n: Integer;
     i: Integer;
     filePath: String;
     data: AnsiString;
-    n: Integer;
     w: Integer;
     h: Integer;
     cs: String;
@@ -189,6 +189,8 @@ type
 
     function FloatToStr(Value: Double): String;
     procedure GetImageFromURL(const aURL: String; const aResponse: TStream);
+    procedure Image(img: TFPDFImageInfo; vX: Double = -9999; vY: Double = -9999;
+      vWidth: Double = 0; vHeight: Double = 0; const vLink: String = ''); overload;
     procedure DefineDefaultPageSizes;
 
   protected
@@ -364,10 +366,11 @@ type
     procedure Writer(vHeight: Double; const vText: String; const vLink: String = '');
     procedure Ln(vHeight: Double = 0);
 
-    procedure Image(const vFileOrURL: String; vX: Double; vY: Double;
-      vWidth: Double; vHeight: Double = 0.0); overload;
+    procedure Image(const vFileOrURL: String; vX: Double = -9999; vY: Double = -9999;
+      vWidth: Double = 0; vHeight: Double = 0; const vLink: String = ''); overload;
     procedure Image(vImageStream: TStream; const vTypeImageExt: String;
-      vX: Double; vY: Double; vWidth: Double; vHeight: Double = 0.0); overload;
+      vX: Double = -9999; vY: Double = -9999; vWidth: Double = 0;
+      vHeight: Double = 0; const vLink: String = ''); overload;
 
     function GetPageWidth: Double;
     function GetPageHeight: Double;
@@ -955,6 +958,7 @@ begin
 
   Self.TextColor := vtc;
   Self.ColorFlag := vcf;
+  Self.underline := vunder;
 end;
 
 procedure TFPDF.Header;
@@ -1286,7 +1290,7 @@ begin
     else
       vop := 'S';
 
-    s := Format('%.2f %.32f %.2f %.2f re %s ', [Self.x*vk, (Self.h-Self.y)*vk, vWidth*vk, -vHeight*vk, vop], TFPDFFormatSetings);
+    s := Format('%.2f %.2f %.2f %.2f re %s ', [Self.x*vk, (Self.h-Self.y)*vk, vWidth*vk, -vHeight*vk, vop], TFPDFFormatSetings);
   end;
 
   vx := Self.x;
@@ -1600,12 +1604,13 @@ begin
 end;
 
 procedure TFPDF.Image(const vFileOrURL: String; vX: Double; vY: Double;       (* //TODO VERIFICAR *)
-  vWidth: Double; vHeight: Double);
+  vWidth: Double; vHeight: Double; const vLink: String);
 var
   i: Integer;
   img: TFPDFImageInfo;
   AlreadyHaveImage: Boolean;
 begin
+  img.data := '';
   //Put an image on the page
   AlreadyHaveImage := False;
   if (Length(Self.images) > 0) then
@@ -1627,48 +1632,28 @@ begin
     i := Length(Self.images);
     SetLength(Self.images, i + 1);
     Self.images[i] := _parseimage(vFileOrURL);
-    Self.images[i].n := i+1;
+    Self.images[i].i := i+1;
     Self.images[i].filePath := vFileOrURL;
     img := Self.images[i];
-  end
-  else
-  begin
-    //Automatic width or height calculus
-    if (vWidth = 0) then
-      vWidth := StrToFloat(FloatToStrF((vHeight * img.w / img.h), ffNumber, 14, 2, TFPDFFormatSetings), TFPDFFormatSetings);
-
-    if (vHeight = 0) then
-      vHeight := StrToFloat(FloatToStrF((vWidth * img.h / img.w), ffNumber, 14, 2, TFPDFFormatSetings), TFPDFFormatSetings);
   end;
 
-  _out('q ' + FloatToStr(vWidth) + ' 0 0 ' + FloatToStr(vHeight) +
-       ' ' + FloatToStr(vX) + ' -' + FloatToStr(vY + vHeight) + ' cm /I' +
-       IntToStr(Length(Self.images)) + ' Do Q');
+  Image(img, vX, vY, vWidth, vHeight);
 end;
 
 procedure TFPDF.Image(vImageStream: TStream; const vTypeImageExt: String;  (* //TODO VERIFICAR *)
-  vX: Double; vY: Double; vWidth: Double; vHeight: Double);
+  vX: Double; vY: Double; vWidth: Double; vHeight: Double; const vLink: String);
 var
-  i: Integer;
+  l: Integer;
   img: TFPDFImageInfo;
 begin
-  i := Length(Self.images);
-  SetLength(Self.images, i + 1);
-  Self.images[i] := _parseimage(vImageStream, vTypeImageExt);
-  Self.images[i].n := Length(Self.images);
-  Self.images[i].filePath := '';
-  img := Self.images[i];
+  l := Length(Self.images);
+  SetLength(Self.images, l + 1);
+  Self.images[l] := _parseimage(vImageStream, vTypeImageExt);
+  Self.images[l].i := Length(Self.images);
+  Self.images[l].filePath := '';
+  img := Self.images[l];
 
-  //Automatic width or height calculus
-  if (vWidth = 0) then
-    vWidth := StrToFloat(FloatToStrF((vHeight * img.w / img.h), ffNumber, 14, 2, TFPDFFormatSetings), TFPDFFormatSetings);
-
-  if (vHeight = 0) then
-    vHeight := StrToFloat(FloatToStrF((vWidth * img.h / img.w), ffNumber, 14, 2, TFPDFFormatSetings), TFPDFFormatSetings);
-
-  _out('q ' + FloatToStr(vWidth) + ' 0 0 ' + FloatToStr(vHeight) +
-       ' ' + FloatToStr(vX) + ' -' + FloatToStr(vY + vHeight) + ' cm /I' +
-       IntToStr(Length(Self.images)) + ' Do Q');
+  Image(img, vX, vY, vWidth, vHeight);
 end;
 
 function TFPDF.GetPageWidth: Double;
@@ -1944,8 +1929,6 @@ const
       927,928,928,834,873,828,924,924,917,930,931,463,883,836,836,867,867,696,696,874,0,874,
       760,946,771,865,771,888,967,888,831,873,927,970,918,0);
 
-var
-  a: TFPDFFontInfo;
 begin
   Self.Fonts.Clear;
 
@@ -2651,8 +2634,6 @@ begin
 end;
 
 procedure TFPDF._putlinks(const APage: Integer);
-var
-  l: Integer;
 begin
 (* //TODO
   l := Length(Self.PageLinks);
@@ -3264,6 +3245,54 @@ begin
   end;
 end;
 
+procedure TFPDF.Image(img: TFPDFImageInfo; vX: Double; vY: Double;
+  vWidth: Double; vHeight: Double; const vLink: String);
+var
+  x2: Double;
+begin
+  // Automatic width and height calculation if needed
+  if ((vWidth=0) and (vHeight = 0)) then
+  begin
+    // Put image at 96 dpi
+    vWidth := -96;
+    vHeight := -96;
+  end;
+
+  if (vWidth < 0) then
+    vWidth := -img.w*72/vWidth/Self.k;
+
+  if (vHeight < 0) then
+    vHeight := -img.h*72/vHeight/Self.k;
+
+  if (vWidth = 0) then
+    vWidth := vHeight*img.w/img.h;
+
+  if (vHeight = 0) then
+    vHeight := vWidth*img.h/img.w;
+
+  // Flowing mode
+  if (vY = -9999) then
+  begin
+    if ((Self.y+vHeight > Self.PageBreakTrigger) and (not Self.InHeader) and (not Self.InFooter) and (Self.AcceptPageBreak)) then
+    begin
+      // Automatic page break
+      x2 := Self.x;
+      AddPage(Self.CurOrientation, Self.CurPageSize, Self.CurRotation);
+      Self.x := x2;
+    end;
+
+    vY := Self.y;
+    Self.y := Self.y + vHeight;
+  end;
+
+  if (vX = -9999) then
+    vX := Self.x;
+
+  _out(Format('q %.2f 0 0 %.2f %.2f %.2f cm /I%d Do Q', [vWidth*Self.k, vHeight*Self.k, vX*Self.k, (Self.h-(vY+vHeight))*Self.k, img.i], TFPDFFormatSetings));
+  if (vLink <> '') then
+    Link(vX, vY, vWidth, vHeight, vLink);
+end;
+
 procedure TFPDF.DefineDefaultPageSizes;
 begin
   Self.StdPageSizes[pfA3].w := 841.89;
@@ -3334,6 +3363,7 @@ function TFPDF._parseimage(vImageStream: TStream; const vTypeImageExt: String): 
 var
   ex: String;
 begin
+  Result.data := '';
   ex := UpperCase(Trim(vTypeImageExt));
   if (ex = '') then
     Error('Image Stream without an extension!');
