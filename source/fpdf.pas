@@ -592,14 +592,14 @@ begin
   Self.n := 2;
   Self.buffer := TMemoryStream.Create;
   Self.buffer.Position := 0;
-  Self.pages := [];
+  SetLength(Self.pages, 0);
   Self.PageInfo := TStringListList.Create(True);
-  Self.UsedFonts := [];
-  Self.FontFiles := [];
+  SetLength(Self.UsedFonts,0);
+  SetLength(Self.FontFiles,0);
   Self.encodings := TStringList.Create;
   Self.cmaps := TStringList.Create;
-  Self.images := [];
-  Self.links := [];
+  SetLength(Self.images,0);
+  SetLength(Self.links,0);
   Self.InHeader := False;
   Self.InFooter := False;
   Self.lasth := 0;
@@ -2403,7 +2403,7 @@ begin
   vImageStream.Position := 0;
   s := '';
   Result.pal := '';
-  Result.trns := [];
+  SetLength(Result.trns,0);
   Result.data := '';
 
   // Check signature
@@ -3457,7 +3457,7 @@ function Split(const AString: string; const ADelimiter: Char = ' '): TStringArra
 var
   p1, p2, i: Integer;
 begin
-  Result := [];
+  SetLength(Result,0);
   i := 0;
   p1 := 1;
   p2 := pos(ADelimiter, AString);

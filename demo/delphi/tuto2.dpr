@@ -1,7 +1,6 @@
 program tuto2;
 
 uses
-  {$ENDIF}
   Classes, SysUtils,
   fpdf;
 
