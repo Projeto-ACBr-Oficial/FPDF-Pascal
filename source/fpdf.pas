@@ -430,18 +430,13 @@ const
     TwoDigitYearCenturyWindow: 50;
     );
 
-  cORIENTATION: array[TFPDFOrientation] of char = ('P', 'L', #0);
-  cUNIT: array[TFPDFUnit] of Double = (1, 72 / 25.4, 72 / 2.54, 72, 0.75);
+  cUNIT: array[TFPDFUnit] of Double = (1, (72 / 25.4), (72 / 2.54), 72, 0.75);
   cCOLOR: array[TFPDFColor] of array [0..2] of smallint = (
    (000, 000, 000), (192, 192, 192), (128, 128, 128), (255, 255, 255),
    (128, 000, 000), (255, 000, 000), (128, 000, 128), (255, 000, 255),
    (000, 128, 000), (000, 255, 000), (128, 128, 000), (255, 255, 000),
    (000, 000, 128), (000, 000, 255), (000, 128, 128), (000, 255, 255),
    (220, 220, 220) );
-  cZOOMMODE: array[TFPDFZoomMode] of shortString =
-    ('default', 'fullpage', 'fullwidth', 'real', 'zoom');
-  cLAYOUTMMODE: array[TFPDFLayoutMode] of shortString =
-    ('default', 'single', 'continuous', 'two');
 
 { TFPDFFont }
 
@@ -570,7 +565,7 @@ end;
 
 constructor TFPDF.Create;
 begin
-  Create(poPortrait, puMM, pfA4);
+  Create(poPortrait, puCM, pfA4);
 end;
 
 constructor TFPDF.Create(orientation: TFPDFOrientation; pageUnit: TFPDFUnit;
@@ -647,6 +642,9 @@ begin
   Self.CurPageSize.h := APageSize.h;
 
   //Page orientation
+  if (orientation = poDefault) then
+    orientation := poPortrait;
+
   if (orientation = poLandscape) then
   begin
     Self.w := APageSize.h;
@@ -680,7 +678,7 @@ begin
   SetCompression(True);
   // Metadata
   Self.metadata := TStringList.Create;
-  Self.metadata.Values['Producer'] := 'JPFPDF '+FPDF_VERSION;
+  Self.metadata.Values['Producer'] := 'FPDF Pascal'+FPDF_VERSION;
   // Set default PDF version number
   Self.PDFVersion := 1.3;
 
@@ -835,7 +833,7 @@ begin
   if Assigned(E) then
     s := s + sLineBreak + E.Message;
 
-  raise EFPDFError.Create('JPFPDF error: ' + s);
+  raise EFPDFError.Create('FPDF error: ' + s);
 end;
 
 procedure TFPDF.Close;

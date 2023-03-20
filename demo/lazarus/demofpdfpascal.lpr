@@ -18,7 +18,7 @@ begin
   hh := now;
   DirFiles := ExtractFilePath(ParamStr(0))+'..\files\';
   DefaultFormatSettings.DecimalSeparator := ',';
-  Fpdf1 := TFPDF.Create;
+  Fpdf1 := TFPDF.Create(poDefault, puPT, pfA4);
   t := TStringList.Create;
   t.LoadFromFile(DirFiles+'20k_c1.txt');
   with Fpdf1 do begin
@@ -67,7 +67,7 @@ begin
     Image(DirFiles+'image1.jpg',40,40,80,75);
     Image(DirFiles+'image2.png',40,120,120,75);
     Image(DirFiles+'image3.png',40,200,100,60);
-    Image('https://projetoacbr.com.br/wp-content/uploads/2021/06/acbr.png',40,200,100,100);
+    //Image('https://projetoacbr.com.br/wp-content/uploads/2021/06/acbr.png',40,200,100,100);
     SetFont('Courier','BIU',16);
     SetTextColor(0,0,0);
     Text(100,140,'Free Jpdf Pascal');
