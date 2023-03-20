@@ -673,7 +673,7 @@ begin
   // Default display mode
   SetDisplayMode(zmDefault);
   // Enable compression
-  SetCompression(True);
+  SetCompression(False);
   // Metadata
   Self.metadata := TStringList.Create;
   Self.metadata.Values['Producer'] := 'FPDF Pascal '+FPDF_VERSION;
