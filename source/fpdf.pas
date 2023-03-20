@@ -98,7 +98,7 @@ type
     f: String;
     dp: String;
     pal: AnsiString;
-    trns: AnsiString;
+    trns: array of Integer;
     smask: AnsiString;
   end;
 
@@ -121,6 +121,7 @@ type
   private
     fcw: TFPDFFontInfo;
     fenc: TFPDFFontEncode;
+    fFontName: String;
     fFontType: TFPDFFontType;
     fName: String;
     fuv1: TFPDFFontInfo;
@@ -129,12 +130,15 @@ type
     fut: Double;
     fsubsetted: Boolean;
     fdiff: String;
+    procedure SetFontName(AValue: String);
+    procedure SetName(AValue: String);
   public
     constructor Create;
     procedure fill(var AFontInfo: TFPDFFontInfo; AValue: Integer);
 
     property FontType: TFPDFFontType read fFontType write fFontType;
-    property Name: String read fName write fName;
+    property FontName: String read fFontName write SetFontName;
+    property Name: String read fName write SetName;
     property up: Double read fup write fup;
     property ut: Double read fut write fut;
     property cw: TFPDFFontInfo read fcw write fcw ;
@@ -287,7 +291,7 @@ type
     procedure _putfonts;
     function _tounicodecmap(uv1, uv2: TFPDFFontInfo): String;
     procedure _putimages;
-    procedure _putimage(info: TFPDFImageInfo);
+    procedure _putimage(var img: TFPDFImageInfo);
     procedure _putxobjectdict;
     procedure _putresourcedict();
     procedure _putresources;
@@ -444,9 +448,31 @@ const
 
 { TFPDFFont }
 
+procedure TFPDFFont.SetFontName(AValue: String);
+begin
+  if (fFontName = AValue) then
+    Exit;
+
+  fFontName := AValue;
+  if (fName = '') then
+    fName := AValue;
+end;
+
+procedure TFPDFFont.SetName(AValue: String);
+begin
+  if (fName = AValue) then
+    Exit;
+
+  fName := AValue;
+  if (fFontName = '') then
+    fFontName := AValue;
+end;
+
 constructor TFPDFFont.Create;
 begin
   inherited;
+  fName := '';
+  fFontName := '';
   fFontType := ftCore;
   fup := -100;
   fut := 50;
@@ -501,7 +527,7 @@ begin
   Result := nil;
   for i := 0 to Count-1 do
   begin
-    if LowerCase(Item[i].Name) = LowerCase(AFontName) then
+    if LowerCase(Item[i].FontName) = LowerCase(AFontName) then
     begin
       Result := Item[i];
       Break;
@@ -911,7 +937,8 @@ begin
   _out(Format('%.2f', [vlw*Self.k], TFPDFFormatSetings) + ' w');
 
   //Set font
-  SetFont(vfamily, vstyle, vFontSize);
+  if (vfamily <> '') then
+    SetFont(vfamily, vstyle, vFontSize);
 
   //Set colors
   Self.DrawColor := vdc;
@@ -941,7 +968,8 @@ begin
   end;
 
   //Restore font
-  SetFont(vfamily, vstyle, vFontSize);
+  if (vfamily <> '') then
+    SetFont(vfamily, vstyle, vFontSize);
 
   //Restore colors
   if (Self.DrawColor <> vdc) then
@@ -1606,7 +1634,7 @@ end;
 procedure TFPDF.Image(const vFileOrURL: String; vX: Double; vY: Double;       (* //TODO VERIFICAR *)
   vWidth: Double; vHeight: Double; const vLink: String);
 var
-  i: Integer;
+  i, l: Integer;
   img: TFPDFImageInfo;
   AlreadyHaveImage: Boolean;
 begin
@@ -1629,12 +1657,12 @@ begin
   if not (AlreadyHaveImage) then
   begin
     //First use of image, get info
-    i := Length(Self.images);
-    SetLength(Self.images, i + 1);
-    Self.images[i] := _parseimage(vFileOrURL);
-    Self.images[i].i := i+1;
-    Self.images[i].filePath := vFileOrURL;
-    img := Self.images[i];
+    l := Length(Self.images);
+    SetLength(Self.images, l + 1);
+    Self.images[l] := _parseimage(vFileOrURL);
+    Self.images[l].i := l+1;
+    Self.images[l].filePath := vFileOrURL;
+    img := Self.images[l];
   end;
 
   Image(img, vX, vY, vWidth, vHeight);
@@ -1970,7 +1998,8 @@ begin
 
   with Self.Fonts.New do
   begin
-    Name := 'Times';
+    Name := 'Times-Roman';
+    FontName := 'Times';
     cw := CW_TIMES_ROMAN;
   end;
 
@@ -2402,7 +2431,7 @@ begin
   vImageStream.Position := 0;
   s := '';
   Result.pal := '';
-  Result.trns := '';
+  Result.trns := [];
   Result.data := '';
 
   // Check signature
@@ -2470,14 +2499,25 @@ begin
     begin
       // Read transparency info
       if (ColorType = 0) then
-        Result.trns := ChunkData[1]
+      begin
+        SetLength(Result.trns, 1);
+        Result.trns[0] := ord(ChunkData[2]);
+      end
       else if (ColorType = 2) then
-        Result.trns := ChunkData[2]+ChunkData[4]+ChunkData[6]
+      begin
+        SetLength(Result.trns, 3);
+        Result.trns[0] := ord(ChunkData[2]);
+        Result.trns[1] := ord(ChunkData[4]);
+        Result.trns[2] := ord(ChunkData[6]);
+      end
       else
       begin
         p := pos(#0, ChunkData);
         if (p > 0) then
-          Result.trns := Char(p);
+        begin
+          SetLength(Result.trns, 1);
+          Result.trns[0] := p-1;
+        end;
       end;
     end
 
@@ -2982,68 +3022,68 @@ begin
   end;
 end;
 
-procedure TFPDF._putimage(info: TFPDFImageInfo);
+procedure TFPDF._putimage(var img: TFPDFImageInfo);
 var
   s: AnsiString;
   i, l: Integer;
   smask: TFPDFImageInfo;
 begin
   _newobj();
-  info.n := Self.n;
+  img.n := Self.n;
   _put('<</Type /XObject');
   _put('/Subtype /Image');
-  _put('/Width '+FloatToStr(info.w));
-  _put('/Height '+FloatToStr(info.h));
-  if (info.cs = 'Indexed') then
-    _put('/ColorSpace [/Indexed /DeviceRGB '+FloatToStr(Length(info.pal)/3-1)+' '+IntToStr(Self.n+1)+' 0 R]')
+  _put('/Width '+FloatToStr(img.w));
+  _put('/Height '+FloatToStr(img.h));
+  if (img.cs = 'Indexed') then
+    _put('/ColorSpace [/Indexed /DeviceRGB '+FloatToStr(Length(img.pal)/3-1)+' '+IntToStr(Self.n+1)+' 0 R]')
   else
   begin
-    _put('/ColorSpace /'+info.cs);
-    if(info.cs = 'DeviceCMYK') then
+    _put('/ColorSpace /'+img.cs);
+    if(img.cs = 'DeviceCMYK') then
       _put('/Decode [1 0 1 0 1 0 1 0]');
   end;
 
-  _put('/BitsPerComponent '+IntToStr(info.bpc));
-  if (info.f <> '') then
-    _put('/Filter /'+info.f);
+  _put('/BitsPerComponent '+IntToStr(img.bpc));
+  if (img.f <> '') then
+    _put('/Filter /'+img.f);
 
-  if (info.dp <> '') then
-    _put('/DecodeParms <<'+info.dp+'>>');
+  if (img.dp <> '') then
+    _put('/DecodeParms <<'+img.dp+'>>');
 
-  if (info.trns <> '') then
+  if (Length(img.trns) > 0) then
   begin
     s := '';
-    l := Length(info.trns);
-    for i := 1 to l do
-      s := s + info.trns[i]+' '+info.trns[i]+' ';
+    l := Length(img.trns)-1;
+    for i := 0 to l do
+      s := s + IntToStr(img.trns[i])+' '+IntToStr(img.trns[i])+' ';
 
     _put('/Mask ['+s+']');
   end;
 
-  if (info.smask <> '') then
+  if (img.smask <> '') then
     _put('/SMask '+IntToStr(Self.n+1)+' 0 R');
 
-  _put('/Length '+IntToStr(Length(info.data))+'>>');
-  _putstream(info.data);
+  _put('/Length '+IntToStr(Length(img.data))+'>>');
+  _putstream(img.data);
   _put('endobj');
 
   // Soft mask
-  if (info.smask <> '') then
+  if (img.smask <> '') then
   begin
-    smask.w := info.w;
-    smask.h := info.h;
+    smask.w := img.w;
+    smask.h := img.h;
     smask.cs := 'DeviceGray';
     smask.bpc := 8;
-    smask.f := info.f;
-    smask.dp := '/Predictor 15 /Colors 1 /BitsPerComponent 8 /Columns '+IntToStr(info.w);
-    smask.data := info.smask;
+    smask.f := img.f;
+    smask.dp := '/Predictor 15 /Colors 1 /BitsPerComponent 8 /Columns '+IntToStr(img.w);
+    smask.data := img.smask;
     smask.smask := '';
     _putimage(smask);
   end;
 
   // Palette
-  if (info.cs = 'Indexed') then
-    _putstreamobject(info.pal);
+  if (img.cs = 'Indexed') then
+    _putstreamobject(img.pal);
 end;
 
 procedure TFPDF._putxobjectdict;
