@@ -76,15 +76,17 @@ end;
 procedure TMyFPDF.ChapterBody(Afile: String);
 var
   sl: TStringList;
+  txt: String;
 begin
   // Read text file
   sl := TStringList.Create;
   try
     sl.LoadFromFile(Afile);
+    txt := Trim(sl.Text);
     // Times 12
     SetFont('Times','',12);
     // Output justified text
-    MultiCell( 0, 5, sl.Text);
+    MultiCell( 0, 5, txt);
     // Line break
     Ln();
     // Mention in italics

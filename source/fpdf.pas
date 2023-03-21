@@ -339,11 +339,11 @@ type
     function PageNo: Integer;
 
     procedure SetDrawColor(color: TFPDFColor); overload;
-    procedure SetDrawColor(ValR: Integer = 0; ValG: Integer = 0; ValB: Integer = 0); overload;
+    procedure SetDrawColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
     procedure SetFillColor(color: TFPDFColor); overload;
-    procedure SetFillColor(ValR: Integer = 0; ValG: Integer = 0; ValB: Integer = 0); overload;
+    procedure SetFillColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
     procedure SetTextColor(color: TFPDFColor); overload;
-    procedure SetTextColor(ValR: Integer = 0; ValG: Integer = 0; ValB: Integer = 0); overload;
+    procedure SetTextColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
     procedure SetUnderline(fUnderline: Boolean = False);
 
     function GetStringWidth(const vText: String): Double;
@@ -1931,6 +1931,8 @@ const
       788,788,788,788,788,788,788,788,788,788,788,788,788,788,894,838,1016,458,748,924,748,918,
       927,928,928,834,873,828,924,924,917,930,931,463,883,836,836,867,867,696,696,874,0,874,
       760,946,771,865,771,888,967,888,831,873,927,970,918,0);
+var
+  f: TFPDFFont;
 
 begin
   Self.Fonts.Clear;
@@ -1984,9 +1986,11 @@ begin
     cw := CW_TIMES_BOLD;
   end;
 
-  with Self.Fonts.New do
+  f := Self.Fonts.New;
+  with f do
   begin
-    Name := 'Times-Oblique';
+    Name := 'Times-Italic';
+    FontName := 'Times-Oblique';
     cw := CW_TIMES_ITALIC;
   end;
 
