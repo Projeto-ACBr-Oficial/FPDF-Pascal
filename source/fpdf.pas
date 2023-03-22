@@ -3425,15 +3425,16 @@ const
   bufsize = 65536;
 var
   dcs: TDecompressionStream;
-  ss1: TStringStream;
+  ms: TMemoryStream;
   lb, lr: Integer;
   buf: AnsiString;
 begin
-  ss1 := TStringStream.Create(StrIn);
-  dcs := TDecompressionStream.Create(ss1);
+  ms := TMemoryStream.Create();
+  dcs := TDecompressionStream.Create(ms);
   try
     try
       Result := '';
+      ms.Write(PAnsiChar(StrIn)^, Length(StrIn));
       repeat
         SetLength(buf, bufsize);
         lb := dcs.Read(buf[1], bufsize);
@@ -3447,7 +3448,7 @@ begin
     end;
   finally
     dcs.Free;
-    ss1.Free;
+    ms.Free;
   end;
 end;
 
