@@ -302,7 +302,7 @@ type
     procedure _enddoc;
 
     function GzCompress(const StrIn: AnsiString; CompLevel: TCompressionLevel = clMax): AnsiString;
-    function GzDecompress(const StrIn: AnsiString): String;
+    function GzDecompress(const StrIn: AnsiString): AnsiString;
 
   public
     constructor Create(AOrientation: TFPDFOrientation = poPortrait;
@@ -1437,7 +1437,7 @@ begin
       Inc(ns);
     end;
 
-    l := l + cw[ord(c)]; (* //TODO  veririficar *)
+    l := l + cw[ord(c)];
     if (l> wmax) then
     begin
       // Automatic line break
@@ -1546,7 +1546,7 @@ begin
     if (c = ' ') then
       sep := i;
 
-    l := l + cw[Ord(c)];   (* //TODO  veririficar *)
+    l := l + cw[Ord(c)];
     if (l > wmax) then
     begin
       // Automatic line break
@@ -2380,8 +2380,9 @@ end;
 
 function TFPDF._parsepng(vImageStream: TStream): TFPDFImageInfo;
 var
-  data, s, color, alpha, aline, ChunkType, ChunkData: AnsiString;
-  Width, Height, LenChunk, LenWidth, LenLine, p, i, j: LongWord;
+  s, color, alpha, LinData, LinColor, LinAlpha, ChunkType, ChunkData, DataDecompress: AnsiString;
+  Width, Height, LenChunk, LenWidth, p, i, j, l, m,
+    LenColor, LenLinColor, LenLinAlpha: LongWord;
   BitDepth, ColorType, CompressionMethod, FilterMethod, InterlaceMethod: Byte;
 
   procedure ReadNextChunk(S: TStream; out ChunckType: AnsiString; out ChunkData: AnsiString);
@@ -2527,47 +2528,41 @@ begin
     // Extract alpha channel
     color := '';
     alpha := '';
-    data := GzDecompress(Result.data);
+    LinData := '';
+    LinAlpha := '';
+    LinColor := '';
+    DataDecompress := GzDecompress(Result.data);
 
     if (ColorType = 4) then
-    begin
-      // Gray image
-      LenWidth := 2*Width;
-      for i := 0 to Height-1 do
-      begin
-	p := ((1+LenWidth)*i)+1;
-	color := color + data[p];
-	alpha := alpha + data[p];
-	aline := Copy(data, p+1, LenWidth);
-        LenLine := Length(aline);
-        j := 1;
-        while j < LenLine do
-        begin
-          color := color + aline[j];
-          alpha := alpha + aline[j+1];
-          inc(j, 2);
-        end;
-      end;
-    end
+      LenColor := 1        // Gray image
     else
+      LenColor := 3;       // RGB image
+
+    LenWidth := (LenColor+1)*Width;
+    LenLinAlpha := Width+1;
+    LenLinColor := Width*LenColor+1;
+    SetLength(LinData, LenWidth);
+    SetLength(LinAlpha, LenLinAlpha);
+    SetLength(LinColor, LenLinColor);
+    SetLength(alpha, LenLinAlpha*Height);
+    SetLength(color, LenLinColor*Height);
+    for i := 0 to Height-1 do
     begin
-      // RGB image
-      LenWidth := 4*Width;
-      for i := 0 to Height-1 do
+      p := ((1+LenWidth)*i)+1;
+      LinColor[1] := DataDecompress[p];
+      LinAlpha[1] := DataDecompress[p];
+      Move(DataDecompress[p+1], LinData[1], LenWidth);
+      j := 1; l := 2; m := 2;
+      while j < LenWidth do
       begin
-	p := ((1+LenWidth)*i)+1;
-	color := color + data[p];
-	alpha := alpha + data[p];
-	aline := Copy(data, p+1, LenWidth);
-        LenLine := Length(aline);
-        j := 1;
-        while j < LenLine do
-        begin
-          color := color + copy(aline, j, 3);
-          alpha := alpha + aline[j+3];
-          inc(j, 4);
-        end;
+        Move(LinData[j], LinColor[m], LenColor);
+        Move(LinData[j+LenColor], LinAlpha[l], 1);
+        inc(j, LenColor+1);
+        inc(m, LenColor);
+        inc(l);
       end;
+      Move(LinColor[1], color[LenLinColor*i+1], LenLinColor);
+      Move(LinAlpha[1], alpha[LenLinAlpha*i+1], LenLinAlpha);
     end;
 
     Result.data := gzcompress(color);
@@ -2740,7 +2735,7 @@ begin
     Inc(vn);
     Self.PageInfo[i].Values['n'] := IntToStr(vn);
     Inc(vn);
-    (* // TODO
+    (* //TODO
     foreach($this->PageLinks[$i] as &$pl)
     	$pl[5] = ++$n;
     unset($pl);
@@ -3402,32 +3397,37 @@ function TFPDF.GzCompress(const StrIn: AnsiString;
   CompLevel: TCompressionLevel): AnsiString;
 var
   cs: TCompressionStream;
-  ss2: TStringStream;
+  ms: TMemoryStream;
+  l: Integer;
 begin
   Result := '';
-  ss2 := TStringStream.Create('');
+  ms := TMemoryStream.Create;
   try
-    cs := tcompressionstream.Create(complevel, ss2);
+    cs := TCompressionStream.Create(CompLevel, ms);
     try
-      cs.Write(StrIn[1], length(StrIn));
+      l := length(StrIn);
+      cs.Write(StrIn[1], l);
     finally
       cs.Free;
     end;
 
-    Result := ss2.DataString;
+    Setlength(Result, ms.Size);
+    ms.Position := 0;
+    l := ms.read(PAnsiChar(Result)^, ms.Size);
+    SetLength(Result, l);
   finally
-    ss2.Free;
+    ms.Free;
   end;
 end;
 
-function TFPDF.GzDecompress(const StrIn: AnsiString): String;
+function TFPDF.GzDecompress(const StrIn: AnsiString): AnsiString;
 const
   bufsize = 65536;
 var
   dcs: TDecompressionStream;
   ss1: TStringStream;
-  br: Integer;
-  buf: String;
+  lb, lr: Integer;
+  buf: AnsiString;
 begin
   ss1 := TStringStream.Create(StrIn);
   dcs := TDecompressionStream.Create(ss1);
@@ -3436,9 +3436,11 @@ begin
       Result := '';
       repeat
         SetLength(buf, bufsize);
-        br := dcs.Read(buf[1], bufsize);
-        Result := Result + Copy(buf, 1, br);
-      until br < bufsize;
+        lb := dcs.Read(buf[1], bufsize);
+        lr := Length(Result);
+        SetLength(Result, lr+lb);
+        Move(buf[1], Result[lr+1], lb);
+      until lb < bufsize;
     except
       Result := '';
       raise;
@@ -3514,4 +3516,27 @@ initialization
     NegCurrFormat := 5;
   end;
 end.
+
+
+for i := 0 to Height-1 do
+begin
+  p := ((1+LenWidth)*i)+1;
+  color := color + datapng[p];
+  alpha := alpha + datapng[p];
+  lpng := Copy(datapng, p+1, LenWidth);
+  LenLine := Length(lpng);
+  j := 1; l := 1; m := 1;
+  while j < LenLine do
+  begin
+    lcolor[m]   := lpng[j];
+    lcolor[m+1] := lpng[j+1];
+    lcolor[m+2] := lpng[j+2];
+    lalpha[l]   := lpng[j+3];
+    inc(j, 4);
+    inc(m, 3);
+    inc(l);
+  end;
+  color := color + lcolor;
+  alpha := alpha + lalpha;
+end;
 
