@@ -278,7 +278,6 @@ type
     function _parseimage(vImageStream: TStream; const vTypeImageExt: String): TFPDFImageInfo; overload;
     function _parsejpg(vImageStream: TStream): TFPDFImageInfo;
     function _parsepng(vImageStream: TStream): TFPDFImageInfo;
-    function _parsebmp(vImageStream: TStream): TFPDFImageInfo;
     procedure _out(const AData: AnsiString);
     procedure _put(const AData: AnsiString);
     function _getoffset: Int64;
@@ -408,6 +407,7 @@ const
    (220, 220, 220) );
 
 function SwapBytes(Value: LongWord): LongWord;
+function SwapBytes(Value: Word): Word;
 function Split(const AString: string; const ADelimiter: Char = ' '): TStringArray;
 function CountStr(const AString, SubStr : String ) : Integer ;
 
@@ -2358,24 +2358,110 @@ begin
 end;
 
 function TFPDF._parsejpg(vImageStream: TStream): TFPDFImageInfo;
+var
+  Data: AnsiString;
+  SegType, ColorComponents, ColorBits: Byte;
+  Width, Height: Word;
+  l: Integer;
+  ColSpace: String;
+
+  procedure ReadNextSegment(S: TStream; out SegType: Byte; out SegData: AnsiString);
+  var
+    Len: Word;
+    SegStart: Byte;
+  begin
+    SegType := 0;
+    SegData := '';
+    while ((SegType = 0) or (SegType = 255)) and  (S.Position <= S.Size-1)  do
+    begin
+      SegStart := 0;
+      while (SegStart <> 255) do    // Scan for the Start
+        S.ReadBuffer(SegStart, 1);
+
+      S.ReadBuffer(SegType, 1);
+    end;
+
+    Len := 0;
+    if (SegType > 0) and (S.Position < S.Size-2) then
+    begin
+      S.ReadBuffer(Len, 2);
+      Len := SwapBytes(Len);
+      Dec(Len, 2);
+    end;
+
+    if (Len > 0) and ((S.Position + Len) < S.Size) then
+    begin
+      SetLength(SegData, Len);
+      S.ReadBuffer(SegData[1], Len);
+    end;
+  end;
+
+
 begin
   // Extract info from a JPEG file
-(* //TODO
-  $a = getimagesize($file);
-  if(!$a)
-	  $this->Error('Missing or incorrect image file: '.$file);
-  if($a[2]!=2)
-	  $this->Error('Not a JPEG file: '.$file);
-  if(!isset($a['channels']) || $a['channels']==3)
-	  $colspace = 'DeviceRGB';
-  elseif($a['channels']==4)
-	  $colspace = 'DeviceCMYK';
+
+  vImageStream.Position := 0;
+  Data := '';
+  Result.pal := '';
+  SetLength(Result.trns,0);
+  Result.data := '';
+
+  // Check signature
+  SetLength(Data, 2);
+  vImageStream.ReadBuffer(Data[1], 2);
+  if (Data <> #255 + #216) then     //  SOI, FF+D8, Start of Image
+    Error('JPG - Invalid');
+
+  Width := 0;
+  Height := 0;
+  ColorBits := 0;
+  ColorComponents := 0;
+  SegType := 0;
+  while (SegType <> 217) do  // EOI, FF+D9, End Of Image
+  begin
+    ReadNextSegment(vImageStream, SegType, Data);
+    if (SegType = 0) then
+      Error('JPG - SOF Invalid');
+
+    case SegType of
+      192, 194: // SOF0, C0 or SOF2, C2
+      begin
+        if (Length(Data) > 4) then
+        begin
+          Move(Data[2], Height, 2);
+          Height := SwapBytes(Height);
+          Move(Data[4], Width, 2);
+          Width := SwapBytes(Width);
+
+           // Get the color components and precision
+           Move(Data[6], ColorComponents, 1);
+           Move(Data[7], ColorBits, 1);
+           ColorBits := ColorBits * 8;
+           Break;
+        end;
+      end;
+    end;
+  end;
+
+  if (Width = 0) then
+    Error('JPG - SOF Invalid');
+
+  if (ColorComponents = 3) then
+    ColSpace := 'DeviceRGB'
+  else if (ColorComponents = 4) then
+    ColSpace := 'DeviceCMYK'
   else
-	  $colspace = 'DeviceGray';
-  $bpc = isset($a['bits']) ? $a['bits'] : 8;
-  $data = file_get_contents($file);
-  return array('w'=>$a[0], 'h'=>$a[1], 'cs'=>$colspace, 'bpc'=>$bpc, 'f'=>'DCTDecode', 'data'=>$data);
-*)
+    ColSpace := 'DeviceGray';
+
+  Result.w := Width;
+  Result.h := Height;
+  Result.bpc := ColorBits;
+  Result.cs := ColSpace;
+  Result.f := 'DCTDecode';
+  vImageStream.Position := 0;
+  Setlength(Result.data, vImageStream.Size);
+  l := vImageStream.read(PAnsiChar(Result.data)^, vImageStream.Size);
+  SetLength(Result.data, l);
 end;
 
 function TFPDF._parsepng(vImageStream: TStream): TFPDFImageInfo;
@@ -2571,11 +2657,6 @@ begin
     if (Self.PDFVersion < 1.4) then
       Self.PDFVersion := 1.4;
   end;
-end;
-
-function TFPDF._parsebmp(vImageStream: TStream): TFPDFImageInfo;
-begin
-
 end;
 
 procedure TFPDF._out(const AData: AnsiString);
@@ -3383,8 +3464,6 @@ begin
     Result := _parsepng(vImageStream)
   else if ((ex = 'JPG') or (ex = 'JPEG')) then
     Result := _parsejpg(vImageStream)
-  else if (ex = 'BMP') then
-    Result := _parsebmp(vImageStream)
   else
     Error('Unsupported image formatting: ' + ex);
 end;
@@ -3462,6 +3541,14 @@ begin
   Bytes(Result)[3]:= Bytes(Value)[0];
 end;
 
+function SwapBytes(Value: Word): Word;
+type
+  Bytes = packed array[0..1] of Byte;
+begin
+  Bytes(Result)[0]:= Bytes(Value)[1];
+  Bytes(Result)[1]:= Bytes(Value)[0];
+end;
+
 function Split(const AString: string; const ADelimiter: Char = ' '): TStringArray;
 var
   p1, p2, i: Integer;
@@ -3517,27 +3604,4 @@ initialization
     NegCurrFormat := 5;
   end;
 end.
-
-
-for i := 0 to Height-1 do
-begin
-  p := ((1+LenWidth)*i)+1;
-  color := color + datapng[p];
-  alpha := alpha + datapng[p];
-  lpng := Copy(datapng, p+1, LenWidth);
-  LenLine := Length(lpng);
-  j := 1; l := 1; m := 1;
-  while j < LenLine do
-  begin
-    lcolor[m]   := lpng[j];
-    lcolor[m+1] := lpng[j+1];
-    lcolor[m+2] := lpng[j+2];
-    lalpha[l]   := lpng[j+3];
-    inc(j, 4);
-    inc(m, 3);
-    inc(l);
-  end;
-  color := color + lcolor;
-  alpha := alpha + lalpha;
-end;
 
