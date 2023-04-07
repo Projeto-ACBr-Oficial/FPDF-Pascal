@@ -3561,9 +3561,9 @@ begin
   begin
     Inc(i);
     SetLength(Result, i);
-    Result[i-1] := TrimLeft(copy(AString, p1, (p2-p1)+1));
+    Result[i-1] := TrimLeft(copy(AString, p1, (p2-p1)));
     p1 := p2+1;
-    p2 := PosEx(ADelimiter, AString, p1);
+    p2 := PosEx(ADelimiter, AString + ADelimiter, p1);
   end;
 end;
 
