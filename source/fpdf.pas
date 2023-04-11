@@ -37,7 +37,7 @@ unit fpdf;
 {.$DEFINE USESYNAPSE}
 
 // If you don't want the AnsiString vs String warnings to bother you
-{$DEFINE REMOVE_CAST_WARN}
+{.$DEFINE REMOVE_CAST_WARN}
 
 {$IfNDef FPC}
   {$Define USESYNAPSE}
@@ -218,8 +218,12 @@ type
     Y: Double;
     Width: Double;
     Height: Double;
-    Link: Integer;
+    IdLink: Integer;
+    URLLink: String;
+    n: Integer;
   end;
+
+  TFPDFPageLinks = array of TFPDFPageLink;
 
   { TFPDF }
 
@@ -281,16 +285,16 @@ type
     WithAlpha: Boolean;                   // indicates whether alpha channel is used
     ws: Double;                           // word spacing
     images: array of TFPDFImageInfo;      // array of used images
-    PageLinks: array of TFPDFPageLink;    // array of links in pages
+    PageLinks: array of TFPDFPageLinks;   // array of links in pages
     links: array of TFPDFLink;            // array of internal links
     AutoPageBreak: Boolean;               // automatic page breaking
     PageBreakTrigger: Double;             // threshold used to trigger page breaks
     InHeader: Boolean;                    // flag set when processing header
     InFooter: Boolean;                    // flag set when processing footer
     AliasNbPages: String;                 // alias for total number of pages
-    ZoomMode: TFPDFZoomMode;               // zoom display mode
+    ZoomMode: TFPDFZoomMode;              // zoom display mode
     ZoomFactor: Integer;
-    LayoutMode: TFPDFLayoutMode;           // layout display mode
+    LayoutMode: TFPDFLayoutMode;          // layout display mode
     metadata: TStringList;                // document properties
     CreationDate: TDateTime;              // document creation date
     PDFVersion: Double;                   // PDF version number
@@ -299,6 +303,7 @@ type
     TimeZone: String;                     // TimeZone to be used on Date values
 
     procedure PopulateCoreFonts; virtual;
+    function AddPageLink(vX, vY: Double; vWidth, vHeight: Double): Integer;
 
     function _getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize; overload;
     function _getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize; overload;
@@ -394,9 +399,10 @@ type
     procedure SetFont(const AFamily: String; const AStyle: String = ''; ASize: Double = 0.0);
     procedure SetFontSize(ASize: Double; fUnderline: Boolean = False);
 
-    procedure AddLink;
-    procedure SetLink(vLink: String; vY: Integer = 0; vPage: Integer = - 1);
-    procedure Link(vX, vY: Double; vWidth, vHeight: Double; vLink: String);
+    function AddLink: Integer;
+    procedure SetLink(nLink: Integer; vY: Double = 0; vPage: Integer = -1);
+    procedure Link(vX, vY: Double; vWidth, vHeight: Double; ALink: String); overload;
+    procedure Link(vX, vY: Double; vWidth, vHeight: Double; nLink: Integer); overload;
 
     procedure Text(vX, vY: Double; const vText: String);
     function AcceptPageBreak: Boolean; virtual;
@@ -1237,34 +1243,68 @@ begin
     _out(Format('BT /F%d %.2f Tf ET', [Fonts.IndexOf(Self.CurrentFont), Self.FontSizePt], FPDFFormatSetings));
 end;
 
-procedure TFPDF.AddLink;
+function TFPDF.AddLink: Integer;
 begin
-(*   //TODO
-	// Create a new internal link
-	$n = count($this->links)+1;
-	$this->links[$n] = array(0, 0);
-	return $n;
-*)
+  // Create a new internal link
+  Result := Length(Self.links);
+  SetLength(Self.links, Result+1);
+  Self.links[Result].Page := 0;
+  Self.links[Result].y := 0;
 end;
 
-procedure TFPDF.SetLink(vLink: String; vY: Integer=0; vPage: Integer=-1);
+procedure TFPDF.SetLink(nLink: Integer; vY: Double; vPage: Integer);
 begin
-(*  //TODO
-	// Set destination of internal link
-	if($y==-1)
-		$y = $this->y;
-	if($page==-1)
-		$page = $this->page;
-	$this->links[$link] = array($page, $y);
-*)
+  if (nLink < 0) or (nLink >= Length(Self.links)) then
+    Error('Invalid Link Index: '+IntToStr(nLink));
+
+  // Set destination of internal link
+  if (vY = -1) then
+    vY := Self.y;
+
+  if (vPage < 0) then
+    vPage := Self.page;
+
+  if (vPage > Length(Self.pages)) then
+    Error('Invalid Link Page: '+IntToStr(vPage));
+
+  Self.links[nLink].Page := vPage;
+  Self.links[nLink].y := vY;
 end;
 
-procedure TFPDF.Link(vX, vY: Double; vWidth, vHeight: Double; vLink: String);
+function TFPDF.AddPageLink(vX, vY: Double; vWidth, vHeight: Double): Integer;
 begin
-(*  //TODO
-	// Put a link on the page
-	$this->PageLinks[$this->page][] = array($x*$this->k, $this->hPt-$y*$this->k, $w*$this->k, $h*$this->k, $link);
-*)
+  Result := Length(Self.PageLinks[Self.page]);
+  SetLength(Self.PageLinks[Self.page], Result+1);
+  Self.PageLinks[Self.page][Result].X := vx * Self.k;
+  Self.PageLinks[Self.page][Result].Y := Self.hPt - vY * Self.k;
+  Self.PageLinks[Self.page][Result].Width := vWidth * Self.k;
+  Self.PageLinks[Self.page][Result].Height := vHeight * Self.k;
+end;
+
+procedure TFPDF.Link(vX, vY: Double; vWidth, vHeight: Double; nLink: Integer);
+var
+  i: Integer;
+begin
+  if (nLink < 0) or (nLink >= Length(Self.links)) then
+    Error('Invalid Link Index: '+IntToStr(nLink));
+
+  // Put a link on the page
+  i := AddPageLink(vX, vY, vWidth, vHeight);
+  Self.PageLinks[Self.page][i].IdLink := nLink;
+  Self.PageLinks[Self.page][i].URLLink := '';
+end;
+
+procedure TFPDF.Link(vX, vY: Double; vWidth, vHeight: Double; ALink: String);
+var
+  i: Integer;
+begin
+  if (ALink = '') then
+    Error('Empty Link');
+
+  // Put a link on the page
+  i := AddPageLink(vX, vY, vWidth, vHeight);
+  Self.PageLinks[Self.page][i].IdLink := -1;
+  Self.PageLinks[Self.page][i].URLLink := ALink;
 end;
 
 procedure TFPDF.Text(vX, vY: Double; const vText: String);
@@ -2235,7 +2275,7 @@ begin
   SetLength(Self.pages, Self.page);
   Self.pages[Self.page-1] := '';
   SetLength(Self.PageLinks, Self.page);
-  Self.PageLinks[Self.page-1].Link := -1;
+  SetLength(Self.PageLinks[Self.page-1], 0);
   Self.PageInfo.New;
 
   Self.state := 2;
@@ -2767,35 +2807,52 @@ begin
 end;
 
 procedure TFPDF._putlinks(const APage: Integer);
+var
+  l, i: Integer;
+  aRect, s, vs: String;
+  vh: Double;
+  pl: TFPDFPageLink;
+  idLink: TFPDFLink;
+  PageSizeInfo: TStringArray;
 begin
-(* //TODO
-  l := Length(Self.PageLinks);
+  l := Length(Self.PageLinks[APage]);
   for i := 0 to l-1 do
   begin
+    pl := Self.PageLinks[APage][i];
     _newobj();
-    rect := Format('%.2f %.2f %.2f %.2f', [$pl[0],$pl[1],$pl[0]+$pl[2],$pl[1]-$pl[3]);
-		$s = '<</Type /Annot /Subtype /Link /Rect ['.$rect.'] /Border [0 0 0] ';
-		if(is_string($pl[4]))
-			$s .= '/A <</S /URI /URI '.$this->_textstring($pl[4]).'>>>>';
-		else
-		{
-			$l = $this->links[$pl[4]];
-			if(isset($this->PageInfo[$l[0]]['size']))
-				$h = $this->PageInfo[$l[0]]['size'][1];
-			else
-				$h = ($this->DefOrientation=='P') ? $this->DefPageSize[1]*$this->k : $this->DefPageSize[0]*$this->k;
-			$s .= sprintf('/Dest [%d 0 R /XYZ 0 %.2F null]>>',$this->PageInfo[$l[0]]['n'],$h-$l[1]*$this->k);
-		}
-		$this->_put($s);
-		$this->_put('endobj');
-	}
-  *)
+    aRect := Format('%.2f %.2f %.2f %.2f', [pl.X, pl.Y, pl.x+pl.Width, pl.y-pl.Height], FPDFFormatSetings);
+    s := '<</Type /Annot /Subtype /Link /Rect ['+aRect+'] /Border [0 0 0] ';
+    if (pl.URLLink <> '') then
+      s := s + '/A <</S /URI /URI '+_textstring(pl.URLLink)+'>>>>'
+    else
+    begin
+      idLink := Self.links[pl.IdLink];
+      vh := -1;
+      vs := Self.PageInfo[idLink.Page].Values['size'];
+      if (vs <> '') then
+      begin
+        PageSizeInfo := Split(vs);
+        if (Length(PageSizeInfo) > 1) then
+          vh := StrToFloatDef(PageSizeInfo[1], -1);
+      end;
+
+      if (vh = -1) then
+        vh := IfThen(Self.DefOrientation=poPortrait, Self.DefPageSize.h * Self.k,  Self.DefPageSize.w * Self.k);
+
+      s := s + Format('/Dest [%s 0 R /XYZ 0 %.2f null]>>', [Self.PageInfo[idLink.Page].Values['n'], vh-idLink.y*Self.k], FPDFFormatSetings);
+    end;
+
+    _put(s);
+    _put('endobj');
+  end;
 end;
 
 procedure TFPDF._putpage(const APage: Integer);
 var
   s: String;
   PageSizeInfo: TStringArray;
+  i: Integer;
+  pl: TFPDFPageLink;
 begin
   _newobj();
   _put('<</Type /Page');
@@ -2814,16 +2871,18 @@ begin
 
   _put('/Resources 2 0 R');
 
-  (* //TODO
-  if(!empty($this->PageLinks[$n]))
-  {
-	  $s = '/Annots [';
-	  foreach($this->PageLinks[$n] as $pl)
-		  $s .= $pl[5].' 0 R ';
-	  $s .= ']';
-	  $this->_put($s);
-  }
-  *)
+  if (Length(Self.PageLinks[APage]) > 0) then
+  begin
+    s := '/Annots [';
+    for i := 0 to Length(Self.PageLinks[APage])-1 do
+    begin
+      pl := Self.PageLinks[APage][i];
+      s := s + IntToStr(pl.n) + ' 0 R ';
+    end;
+
+    s := s + ']';
+    _put(s);
+  end;
 
   if (Self.WithAlpha) then
     _put('/Group <</Type /Group /S /Transparency /CS /DeviceRGB>>');
@@ -2843,9 +2902,10 @@ end;
 
 procedure TFPDF._putpages;
 var
-  vnb, vn, i: Integer;
+  vnb, vn, i, j: Integer;
   kids: String;
   vw, vh: Double;
+  pl: TFPDFPageLink;
 begin
   vnb := Self.page;
   vn := Self.n;
@@ -2855,11 +2915,13 @@ begin
     Inc(vn);
     Self.PageInfo[i].Values['n'] := IntToStr(vn);
     Inc(vn);
-    (* //TODO
-    foreach($this->PageLinks[$i] as &$pl)
-    	$pl[5] = ++$n;
-    unset($pl);
-    *)
+
+    for j := 0 to Length(Self.PageLinks[i])-1 do
+    begin
+      pl := Self.PageLinks[i][j];
+      Inc(vn);
+      pl.n := vn;
+    end;
   end;
 
   for i := 1 to vnb do
