@@ -231,6 +231,7 @@ type
     FProxyPort: String;
     FProxyUser: String;
 
+    function ConvertTextToAnsi(const AText: String): String;
     function FloatToStr(Value: Double): String;
     procedure GetImageFromURL(const aURL: String; const aResponse: TStream);
     procedure Image(img: TFPDFImageInfo; vX: Double = -9999; vY: Double = -9999;
@@ -1282,15 +1283,16 @@ end;
 
 procedure TFPDF.Text(vX, vY: Double; const vText: String);
 var
-  s: String;
+  s, t: String;
 begin
   // Output a string
   if not Assigned(Self.CurrentFont) then
      Error('No font has been set');
 
-  s := Format('BT %.2f %.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(vText)], FPDFFormatSetings);
-  if ( Self.underline and (vText <> '') ) then
-    s := s + ' ' + Self._dounderline(vX, vY, vText);
+  t := ConvertTextToAnsi(vText);
+  s := Format('BT %.2f %.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(t)], FPDFFormatSetings);
+  if ( Self.underline and (t <> '') ) then
+    s := s + ' ' + Self._dounderline(vX, vY, t);
 
   if Self.ColorFlag then
     s := 'q ' + Self.TextColor + ' ' + s + ' Q';
@@ -1309,7 +1311,7 @@ procedure TFPDF.Cell(vWidth: Double; vHeight: Double; const vText: String;
   vFill: Boolean; vLink: String);
 var
   vk, vx, vy, vws, vdx: Double;
-  s, vop: String;
+  s, vop, t: String;
 begin
   // Output a cell
   vk := Self.k;
@@ -1365,28 +1367,29 @@ begin
 
   if (vText <> '') then
   begin
+    t := ConvertTextToAnsi(vText);
     if not Assigned(Self.CurrentFont) then
       Error('No font has been set');
 
     if (vAlign ='R') then
-      vdx := vWidth-Self.cMargin-GetStringWidth(vText)
+      vdx := vWidth-Self.cMargin-GetStringWidth(t)
     else if (vAlign ='C') then
-      vdx := (vWidth-GetStringWidth(vText))/2
+      vdx := (vWidth-GetStringWidth(t))/2
     else
       vdx := Self.cMargin;
 
     if Self.ColorFlag then
       s := s + 'q ' + Self.TextColor + ' ';
 
-    s := s + Format('BT %.2f %.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(vText)], FPDFFormatSetings);
+    s := s + Format('BT %.2f %.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(t)], FPDFFormatSetings);
     if Self.underline then
-      s := s + ' '+Self._dounderline(Self.x+vdx, Self.y+0.5*vHeight+0.3*Self.FontSize, vText);
+      s := s + ' '+Self._dounderline(Self.x+vdx, Self.y+0.5*vHeight+0.3*Self.FontSize, t);
 
     if Self.ColorFlag then
       s := s + ' Q';
 
     if (vLink <> '') then
-      Link( Self.x+vdx, Self.y+0.5*vHeight-0.5*Self.FontSize, GetStringWidth(vText), Self.FontSize, vLink);
+      Link( Self.x+vdx, Self.y+0.5*vHeight-0.5*Self.FontSize, GetStringWidth(t), Self.FontSize, vLink);
   end;
 
   if (s <> '') then
@@ -1413,139 +1416,146 @@ var
   s, b, vb, b2: String;
   nb, sep, i, j, l, ns, nl, ls: Integer;
   c: Char;
+  vUTF8: Boolean;
 begin
   // Output text with automatic or explicit line breaks
   if not Assigned(Self.CurrentFont) then
     Error('No font has been set');
 
-  cw := Self.CurrentFont.cw;
-  if (vWidth=0) then
-    vWidth := Self.w-Self.rMargin-Self.x;
+  vUTF8 := Self.UseUTF8;
+  try
+    cw := Self.CurrentFont.cw;
+    if (vWidth=0) then
+      vWidth := Self.w-Self.rMargin-Self.x;
 
-  wmax := (vWidth-2*Self.cMargin)*1000/Self.FontSize;
-  s := StringReplace(vText, CR, '', [rfReplaceAll]);
-  nb := Length(s);
-  if ((nb>0) and (s[nb-1] = LF)) then
-    Dec(nb);
+    wmax := (vWidth-2*Self.cMargin)*1000/Self.FontSize;
+    s := StringReplace(ConvertTextToAnsi(vText), CR, '', [rfReplaceAll]);
+    Self.UseUTF8 := False;
+    nb := Length(s);
+    if ((nb>0) and (s[nb-1] = LF)) then
+      Dec(nb);
 
-  b := '0';
-  vb := vBorder;
-  if (vb <> '') then
-  begin
-    if (vb = '1') then
+    b := '0';
+    vb := vBorder;
+    if (vb <> '') then
     begin
-      vb := 'LTRB';
-      b := 'LRT';
-      b2 := 'LR';
-    end
-    else
-    begin
-      b2 := '';
-      if (pos('L', vb) > 0) then
-        b2 := b2 + 'L';
-      if (pos('R', vb) > 0) then
-        b2 := b2 + 'R';
-
-      b := ifthen(pos('T', vb) > 0, b2+'T', b2);
-    end;
-  end;
-
-  sep := -1;
-  i := 1;
-  j := 1;
-  l := 0;
-  ns := 0;
-  ls := 0;
-  nl := 1;
-  while (i <= nb) do
-  begin
-    // Get next character
-    c := s[i];
-    if (c = LF) then
-    begin
-      // Explicit line break
-      if (Self.ws > 0) then
+      if (vb = '1') then
       begin
-        Self.ws := 0;
-  	_out('0 Tw');
-      end;
-
-      Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
-      Inc(i);
-      sep := -1;
-      j := i;
-      l := 0;
-      ns := 0;
-      Inc(nl);
-      if ((vb <> '') and (nl=2)) then
-        b := b2;
-      continue;
-    end;
-
-    if (c=' ') then
-    begin
-      sep := i;
-      ls := l;
-      Inc(ns);
-    end;
-
-    l := l + cw[ord(c)];
-    if (l> wmax) then
-    begin
-      // Automatic line break
-      if (sep=-1) then
-      begin
-        if (i=j) then
-  	  Inc(i);
-  	if(Self.ws > 0) then
-        begin
-  	  Self.ws := 0;
-          _out('0 Tw');
-        end;
-
-        Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+        vb := 'LTRB';
+        b := 'LRT';
+        b2 := 'LR';
       end
       else
       begin
-        if (vAlign='J') then
+        b2 := '';
+        if (pos('L', vb) > 0) then
+          b2 := b2 + 'L';
+        if (pos('R', vb) > 0) then
+          b2 := b2 + 'R';
+
+        b := ifthen(pos('T', vb) > 0, b2+'T', b2);
+      end;
+    end;
+
+    sep := -1;
+    i := 1;
+    j := 1;
+    l := 0;
+    ns := 0;
+    ls := 0;
+    nl := 1;
+    while (i <= nb) do
+    begin
+      // Get next character
+      c := s[i];
+      if (c = LF) then
+      begin
+        // Explicit line break
+        if (Self.ws > 0) then
         begin
-          if (ns>1) then
-            Self.ws := (wmax-ls)/1000*Self.FontSize/(ns-1)
-          else
-            Self.ws := 0;
+          Self.ws := 0;
+  	  _out('0 Tw');
+        end;
 
-  	  _out(Format('%.3f Tw', [Self.ws*Self.k], FPDFFormatSetings));
-  	end;
-
-  	Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
-  	i := sep+1;
+        Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+        Inc(i);
+        sep := -1;
+        j := i;
+        l := 0;
+        ns := 0;
+        Inc(nl);
+        if ((vb <> '') and (nl=2)) then
+          b := b2;
+        continue;
       end;
 
-      sep := -1;
-      j := i;
-      l := 0;
-      ns := 0;
-      Inc(nl);
+      if (c=' ') then
+      begin
+        sep := i;
+        ls := l;
+        Inc(ns);
+      end;
 
-      if ((vb<>'') and (nl=2)) then
-        b := b2;
-    end
-    else
-      Inc(i);
+      l := l + cw[ord(c)];
+      if (l> wmax) then
+      begin
+        // Automatic line break
+        if (sep=-1) then
+        begin
+          if (i=j) then
+  	    Inc(i);
+  	  if(Self.ws > 0) then
+          begin
+  	    Self.ws := 0;
+            _out('0 Tw');
+          end;
+
+          Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+        end
+        else
+        begin
+          if (vAlign='J') then
+          begin
+            if (ns>1) then
+              Self.ws := (wmax-ls)/1000*Self.FontSize/(ns-1)
+            else
+              Self.ws := 0;
+
+  	    _out(Format('%.3f Tw', [Self.ws*Self.k], FPDFFormatSetings));
+  	  end;
+
+  	  Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
+  	  i := sep+1;
+        end;
+
+        sep := -1;
+        j := i;
+        l := 0;
+        ns := 0;
+        Inc(nl);
+
+        if ((vb<>'') and (nl=2)) then
+          b := b2;
+      end
+      else
+        Inc(i);
+    end;
+
+    // Last chunk
+    if (Self.ws > 0) then
+    begin
+      Self.ws := 0;
+      _out('0 Tw');
+    end;
+
+    if ((vb <> '') and (pos('B', vb) > 0)) then
+      b := b + 'B';
+
+    Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+    Self.x := Self.lMargin;
+  finally
+    Self.UseUTF8 := vUTF8;
   end;
-
-  // Last chunk
-  if (Self.ws > 0) then
-  begin
-    Self.ws := 0;
-    _out('0 Tw');
-  end;
-
-  if ((vb <> '') and (pos('B', vb) > 0)) then
-    b := b + 'B';
-
-  Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
-  Self.x := Self.lMargin;
 end;
 
 
@@ -1557,95 +1567,102 @@ var
   s: String;
   nb, sep, i, j, l, nl: Integer;
   c: Char;
+  vUTF8: Boolean;
 begin
   // Output text in flowing mode
   if not Assigned(Self.CurrentFont) then
     Error('No font has been set');
 
-  cw := Self.CurrentFont.cw;
-  vw := Self.w-Self.rMargin-Self.x;
-  wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
-  s := StringReplace(vText, CR, '', [rfReplaceAll]);
-  nb := Length(s);
-  sep := -1;
-  i := 1;
-  j := 0;
-  l := 0;
-  nl := 1;
-  while (i <= nb) do
-  begin
-    // Get next character
-    c := s[i];
-    if (c = LF) then
+  vUTF8 := Self.UseUTF8;
+  try
+    cw := Self.CurrentFont.cw;
+    vw := Self.w-Self.rMargin-Self.x;
+    wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
+    s := StringReplace(ConvertTextToAnsi(vText), CR, '', [rfReplaceAll]);
+    Self.UseUTF8 := False;
+    nb := Length(s);
+    sep := -1;
+    i := 1;
+    j := 0;
+    l := 0;
+    nl := 1;
+    while (i <= nb) do
     begin
-      // Explicit line break
-      Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', false, vLink);
-      Inc(i);
-      sep := -1;
-      j := i;
-      l := 0;
-      if (nl = 1) then
+      // Get next character
+      c := s[i];
+      if (c = LF) then
       begin
-        Self.x := Self.lMargin;
-  	vw := Self.w-Self.rMargin-Self.x;
-  	wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
-      end;
-
-      Inc(nl);
-      continue;
-    end;
-
-    if (c = ' ') then
-      sep := i;
-
-    l := l + cw[Ord(c)];
-    if (l > wmax) then
-    begin
-      // Automatic line break
-      if (sep=-1) then
-      begin
-        if(Self.x > Self.lMargin) then
+        // Explicit line break
+        Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', false, vLink);
+        Inc(i);
+        sep := -1;
+        j := i;
+        l := 0;
+        if (nl = 1) then
         begin
-  	  // Move to next line
-  	  Self.x := Self.lMargin;
-  	  Self.y := Self.y + vHeight;
+          Self.x := Self.lMargin;
   	  vw := Self.w-Self.rMargin-Self.x;
   	  wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
-  	  Inc(i);
-  	  Inc(nl);
-  	  continue;
-  	end;
+        end;
 
-        if (i = j) then
-          inc(i);
+        Inc(nl);
+        continue;
+      end;
 
-  	Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', False, vLink);
+      if (c = ' ') then
+        sep := i;
+
+      l := l + cw[Ord(c)];
+      if (l > wmax) then
+      begin
+        // Automatic line break
+        if (sep=-1) then
+        begin
+          if(Self.x > Self.lMargin) then
+          begin
+  	    // Move to next line
+  	    Self.x := Self.lMargin;
+  	    Self.y := Self.y + vHeight;
+  	    vw := Self.w-Self.rMargin-Self.x;
+  	    wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
+  	    Inc(i);
+  	    Inc(nl);
+  	    continue;
+  	  end;
+
+          if (i = j) then
+            inc(i);
+
+  	  Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', False, vLink);
+        end
+        else
+        begin
+          Cell(vw, vHeight, copy(s, j, sep-j), '0', 2, '', False, vLink);
+  	  i := sep+1;
+        end;
+
+        sep := -1;
+        j := i;
+        l := 0;
+        if (nl=1) then
+        begin
+          Self.x := Self.lMargin;
+  	  vw := Self.w-Self.rMargin-Self.x;
+  	  wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
+        end;
+
+        Inc(nl);
       end
       else
-      begin
-        Cell(vw, vHeight, copy(s, j, sep-j), '0', 2, '', False, vLink);
-  	i := sep+1;
-      end;
+        Inc(i);
+    end;
 
-      sep := -1;
-      j := i;
-      l := 0;
-      if (nl=1) then
-      begin
-        Self.x := Self.lMargin;
-  	vw := Self.w-Self.rMargin-Self.x;
-  	wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
-      end;
-
-      Inc(nl);
-    end
-    else
-      Inc(i);
+    // Last chunk
+    if (i <> j) then
+      Cell(l/1000*Self.FontSize, vHeight, copy(s, j, Length(s)), '0', 0, '', False, vLink);
+  finally
+    Self.UseUTF8 := vUTF8;
   end;
-
-  // Last chunk
-  if (i <> j) then
-    Cell(l/1000*Self.FontSize, vHeight, copy(s, j, Length(s)), '0', 0, '', False, vLink);
 end;
 
 procedure TFPDF.Ln(vHeight: Double);
@@ -2388,7 +2405,7 @@ var
 begin
   // Format a text string
   if (not _isascii(AString)) then
-    s := _UTF8toUTF16(AString)
+    s := AnsiString(_UTF8toUTF16(AString))
   else
     s := AString;
 
@@ -3353,6 +3370,14 @@ begin
 end;
 
 {%region Utility Functions}
+
+function TFPDF.ConvertTextToAnsi(const AText: String): String;
+begin
+  if Self.UseUTF8 then
+    Result := Utf8ToAnsi(AText)
+  else
+    Result := AText;
+end;
 
 function TFPDF.FloatToStr(Value: Double): String;
 begin
