@@ -5,6 +5,30 @@ FPDF Pascal
 Based on the library FPDF written in PHP by Olivier PLATHEY and
          Free JPDF Pascal from Jean Patrick e Gilson Nunes
 
+ Copyright (C) 2023 Projeto ACBr
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+ the Software without restriction, including without limitation the rights to
+ use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ of the Software, and to permit persons to whom the Software is furnished to do
+ so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+
+ Except as contained in this notice, the name of <Projeto ACBr> shall not be
+ used in advertising or otherwise to promote the sale, use or other dealings in
+ this Software without prior written authorization from <Projeto ACBr>.
+
 }
 
 unit fpdf;
@@ -12,8 +36,16 @@ unit fpdf;
 // Define USESYNAPSE if you want to force use of synapse
 {.$DEFINE USESYNAPSE}
 
+// If you don't want the AnsiString vs String warnings to bother you
+{$DEFINE REMOVE_CAST_WARN}
+
 {$IfNDef FPC}
   {$Define USESYNAPSE}
+
+  {$IFDEF REMOVE_CAST_WARN}
+    {$WARN IMPLICIT_STRING_CAST OFF}
+    {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
+  {$ENDIF}
 {$EndIf}
 
 {$IfDef FPC}
@@ -102,14 +134,6 @@ type
     smask: AnsiString;
   end;
 
-  TFPDFPageLink = record
-    X: Double;
-    Y: Double;
-    Width: Double;
-    Height: Double;
-    Link: Integer;
-  end;
-
   TFPDFPageSize = record
     w: Double;
     h: Double;
@@ -182,6 +206,21 @@ type
     property Page[Index: Integer]: TStringList read GetObject write SetObject; default;
   end;
 
+  { Links }
+
+  TFPDFLink = record
+    Page: Integer;
+    y: Double;
+  end;
+
+  TFPDFPageLink = record
+    X: Double;
+    Y: Double;
+    Width: Double;
+    Height: Double;
+    Link: Integer;
+  end;
+
   { TFPDF }
 
   TFPDF = class
@@ -242,8 +281,8 @@ type
     WithAlpha: Boolean;                   // indicates whether alpha channel is used
     ws: Double;                           // word spacing
     images: array of TFPDFImageInfo;      // array of used images
-    PageLinks: array of String;           // array of links in pages
-    links: array of String;               // array of internal links
+    PageLinks: array of TFPDFPageLink;    // array of links in pages
+    links: array of TFPDFLink;            // array of internal links
     AutoPageBreak: Boolean;               // automatic page breaking
     PageBreakTrigger: Double;             // threshold used to trigger page breaks
     InHeader: Boolean;                    // flag set when processing header
@@ -802,7 +841,7 @@ begin
   if UpperCase(ATimeZone) <> 'Z' then
   begin
     Err := (Length(ATimeZone) <> 6) or
-           (ATimeZone[1] in ['-','+']) or
+           ((ATimeZone[1] = '-') or (ATimeZone[1] = '+')) or
            (not (ATimeZone[4] = ':'));
 
     if not Err then
@@ -2196,7 +2235,7 @@ begin
   SetLength(Self.pages, Self.page);
   Self.pages[Self.page-1] := '';
   SetLength(Self.PageLinks, Self.page);
-  Self.PageLinks[Self.page-1] := '';
+  Self.PageLinks[Self.page-1].Link := -1;
   Self.PageInfo.New;
 
   Self.state := 2;
