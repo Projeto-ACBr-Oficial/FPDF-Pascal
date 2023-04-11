@@ -73,8 +73,6 @@ uses
   Classes, SysUtils, Contnrs,
   {$IfDef FPC}
    zstream,
-   FPimage, FPReadPNG, FPReadBMP, FPReadGif,
-   FPWriteJPEG, FPReadJPEG,
   {$Else}
    ZLib,
   {$EndIf}
@@ -218,8 +216,7 @@ type
     Y: Double;
     Width: Double;
     Height: Double;
-    IdLink: Integer;
-    URLLink: String;
+    Link: String;
     n: Integer;
   end;
 
@@ -239,6 +236,7 @@ type
     procedure Image(img: TFPDFImageInfo; vX: Double = -9999; vY: Double = -9999;
       vWidth: Double = 0; vHeight: Double = 0; const vLink: String = ''); overload;
     procedure DefineDefaultPageSizes;
+    function FindUsedFontIndex(const AFontName: String): Integer;
 
   protected
     page: Integer;                        // current page number
@@ -303,7 +301,6 @@ type
     TimeZone: String;                     // TimeZone to be used on Date values
 
     procedure PopulateCoreFonts; virtual;
-    function AddPageLink(vX, vY: Double; vWidth, vHeight: Double): Integer;
 
     function _getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize; overload;
     function _getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize; overload;
@@ -401,8 +398,7 @@ type
 
     function AddLink: Integer;
     procedure SetLink(nLink: Integer; vY: Double = 0; vPage: Integer = -1);
-    procedure Link(vX, vY: Double; vWidth, vHeight: Double; ALink: String); overload;
-    procedure Link(vX, vY: Double; vWidth, vHeight: Double; nLink: Integer); overload;
+    procedure Link(vX, vY: Double; vWidth, vHeight: Double; vLink: String);
 
     procedure Text(vX, vY: Double; const vText: String);
     function AcceptPageBreak: Boolean; virtual;
@@ -411,7 +407,7 @@ type
       vFill: Boolean = False; vLink: String = '');
     procedure MultiCell(vWidth, vHeight: Double; const vText: String;
       const vBorder: String = '0'; const vAlign: String = 'J'; vFill: Boolean = False);
-    procedure Writer(vHeight: Double; const vText: String; const vLink: String = '');
+    procedure Write(vHeight: Double; const vText: String; const vLink: String = '');
     procedure Ln(vHeight: Double = 0);
 
     procedure Image(const vFileOrURL: String; vX: Double = -9999; vY: Double = -9999;
@@ -1161,7 +1157,7 @@ procedure TFPDF.SetFont(const AFamily: String; const AStyle: String; ASize: Doub
 var
   vFamily, vStyle, vFontName, vStyleName: String;
   oFont: TFPDFFont;
-  i, FontIndex, LenUsedFonts: Integer;
+  FontIndex: Integer;
 begin
   // Select a font; size given in points
   if (Trim(AFamily)='') then
@@ -1209,20 +1205,10 @@ begin
   Self.FontSize := ASize/Self.k;
   Self.CurrentFont := oFont;
 
-  LenUsedFonts := Length(Self.UsedFonts);
-  FontIndex := 0;
-  for i := 0 to LenUsedFonts-1 do
-  begin
-    if (Self.UsedFonts[i].FontName = vFontName) then
-    begin
-      FontIndex := i+1;
-      Break;
-    end;
-  end;
-
+  FontIndex := FindUsedFontIndex(vFontName);
   if (FontIndex < 1) then
   begin
-    FontIndex := LenUsedFonts+1;
+    FontIndex := Length(Self.UsedFonts)+1;
     SetLength(Self.UsedFonts, FontIndex);
     Self.UsedFonts[FontIndex-1].FontName := vFontName;
   end;
@@ -1240,7 +1226,7 @@ begin
   Self.FontSizePt := ASize;
   Self.FontSize := (ASize/Self.k);
   if ((Self.page > 0) and Assigned(Self.CurrentFont)) then
-    _out(Format('BT /F%d %.2f Tf ET', [Fonts.IndexOf(Self.CurrentFont), Self.FontSizePt], FPDFFormatSetings));
+    _out(Format('BT /F%d %.2f Tf ET', [FindUsedFontIndex(Self.CurrentFont.Name), Self.FontSizePt], FPDFFormatSetings));
 end;
 
 function TFPDF.AddLink: Integer;
@@ -1271,40 +1257,27 @@ begin
   Self.links[nLink].y := vY;
 end;
 
-function TFPDF.AddPageLink(vX, vY: Double; vWidth, vHeight: Double): Integer;
-begin
-  Result := Length(Self.PageLinks[Self.page]);
-  SetLength(Self.PageLinks[Self.page], Result+1);
-  Self.PageLinks[Self.page][Result].X := vx * Self.k;
-  Self.PageLinks[Self.page][Result].Y := Self.hPt - vY * Self.k;
-  Self.PageLinks[Self.page][Result].Width := vWidth * Self.k;
-  Self.PageLinks[Self.page][Result].Height := vHeight * Self.k;
-end;
-
-procedure TFPDF.Link(vX, vY: Double; vWidth, vHeight: Double; nLink: Integer);
+procedure TFPDF.Link(vX, vY: Double; vWidth, vHeight: Double; vLink: String);
 var
-  i: Integer;
+  i, IdLink, p: Integer;
 begin
-  if (nLink < 0) or (nLink >= Length(Self.links)) then
-    Error('Invalid Link Index: '+IntToStr(nLink));
-
-  // Put a link on the page
-  i := AddPageLink(vX, vY, vWidth, vHeight);
-  Self.PageLinks[Self.page][i].IdLink := nLink;
-  Self.PageLinks[Self.page][i].URLLink := '';
-end;
-
-procedure TFPDF.Link(vX, vY: Double; vWidth, vHeight: Double; ALink: String);
-var
-  i: Integer;
-begin
-  if (ALink = '') then
+  if (vLink = '') then
     Error('Empty Link');
 
+  IdLink := StrToIntDef(vLink, -1);
+  if (IdLink >= 0) then
+    if (IdLink >= Length(Self.links)) then
+      Error('Invalid Link Index: '+IntToStr(IdLink));
+
   // Put a link on the page
-  i := AddPageLink(vX, vY, vWidth, vHeight);
-  Self.PageLinks[Self.page][i].IdLink := -1;
-  Self.PageLinks[Self.page][i].URLLink := ALink;
+  p := Self.page-1;
+  i := Length(Self.PageLinks[p]);
+  SetLength(Self.PageLinks[p], i+1);
+  Self.PageLinks[p][i].X := vx * Self.k;
+  Self.PageLinks[p][i].Y := Self.hPt - vY * Self.k;
+  Self.PageLinks[p][i].Width := vWidth * Self.k;
+  Self.PageLinks[p][i].Height := vHeight * Self.k;
+  Self.PageLinks[p][i].Link := vLink;
 end;
 
 procedure TFPDF.Text(vX, vY: Double; const vText: String);
@@ -1576,7 +1549,7 @@ begin
 end;
 
 
-procedure TFPDF.Writer(vHeight: Double; const vText: String; const vLink: String
+procedure TFPDF.Write(vHeight: Double; const vText: String; const vLink: String
   );
 var
   cw: TFPDFFontInfo;
@@ -1697,7 +1670,7 @@ begin
   AlreadyHaveImage := False;
   if (Length(Self.images) > 0) then
   begin
-    for i := 0 to Length(Self.images) - 1 do
+    for i := 0 to Length(Self.images)-1 do
     begin
       if (Self.images[i].filePath = vFileOrURL) then
       begin
@@ -1719,7 +1692,7 @@ begin
     img := Self.images[l];
   end;
 
-  Image(img, vX, vY, vWidth, vHeight);
+  Image(img, vX, vY, vWidth, vHeight, vLink);
 end;
 
 procedure TFPDF.Image(vImageStream: TStream; const vTypeImageExt: String;
@@ -2808,27 +2781,28 @@ end;
 
 procedure TFPDF._putlinks(const APage: Integer);
 var
-  l, i: Integer;
+  l, i, idLink: Integer;
   aRect, s, vs: String;
   vh: Double;
   pl: TFPDFPageLink;
-  idLink: TFPDFLink;
+  lk: TFPDFLink;
   PageSizeInfo: TStringArray;
 begin
-  l := Length(Self.PageLinks[APage]);
+  l := Length(Self.PageLinks[APage-1]);
   for i := 0 to l-1 do
   begin
-    pl := Self.PageLinks[APage][i];
+    pl := Self.PageLinks[APage-1][i];
     _newobj();
     aRect := Format('%.2f %.2f %.2f %.2f', [pl.X, pl.Y, pl.x+pl.Width, pl.y-pl.Height], FPDFFormatSetings);
     s := '<</Type /Annot /Subtype /Link /Rect ['+aRect+'] /Border [0 0 0] ';
-    if (pl.URLLink <> '') then
-      s := s + '/A <</S /URI /URI '+_textstring(pl.URLLink)+'>>>>'
-    else
+    IdLink := StrToIntDef(pl.Link, -1);
+    if (IdLink = -1) then   // No Integer value in 'Link'
+      s := s + '/A <</S /URI /URI '+_textstring(pl.Link)+'>>>>'
+    else if (idLink < Length(Self.links)) then
     begin
-      idLink := Self.links[pl.IdLink];
+      lk := Self.links[idLink];
       vh := -1;
-      vs := Self.PageInfo[idLink.Page].Values['size'];
+      vs := Self.PageInfo[lk.Page-1].Values['size'];
       if (vs <> '') then
       begin
         PageSizeInfo := Split(vs);
@@ -2839,7 +2813,7 @@ begin
       if (vh = -1) then
         vh := IfThen(Self.DefOrientation=poPortrait, Self.DefPageSize.h * Self.k,  Self.DefPageSize.w * Self.k);
 
-      s := s + Format('/Dest [%s 0 R /XYZ 0 %.2f null]>>', [Self.PageInfo[idLink.Page].Values['n'], vh-idLink.y*Self.k], FPDFFormatSetings);
+      s := s + Format('/Dest [%s 0 R /XYZ 0 %.2f null]>>', [Self.PageInfo[lk.Page-1].Values['n'], vh-lk.y*Self.k], FPDFFormatSetings);
     end;
 
     _put(s);
@@ -2852,7 +2826,6 @@ var
   s: String;
   PageSizeInfo: TStringArray;
   i: Integer;
-  pl: TFPDFPageLink;
 begin
   _newobj();
   _put('<</Type /Page');
@@ -2871,14 +2844,11 @@ begin
 
   _put('/Resources 2 0 R');
 
-  if (Length(Self.PageLinks[APage]) > 0) then
+  if (Length(Self.PageLinks[APage-1]) > 0) then
   begin
     s := '/Annots [';
-    for i := 0 to Length(Self.PageLinks[APage])-1 do
-    begin
-      pl := Self.PageLinks[APage][i];
-      s := s + IntToStr(pl.n) + ' 0 R ';
-    end;
+    for i := 0 to Length(Self.PageLinks[APage-1])-1 do
+      s := s + IntToStr(Self.PageLinks[APage-1][i].n) + ' 0 R ';
 
     s := s + ']';
     _put(s);
@@ -2905,7 +2875,6 @@ var
   vnb, vn, i, j: Integer;
   kids: String;
   vw, vh: Double;
-  pl: TFPDFPageLink;
 begin
   vnb := Self.page;
   vn := Self.n;
@@ -2918,9 +2887,8 @@ begin
 
     for j := 0 to Length(Self.PageLinks[i])-1 do
     begin
-      pl := Self.PageLinks[i][j];
       Inc(vn);
-      pl.n := vn;
+      Self.PageLinks[i][j].n := vn;
     end;
   end;
 
@@ -3501,6 +3469,22 @@ begin
   Self.StdPageSizes[pfLetter].h := 792;
   Self.StdPageSizes[pfLegal].w := 612;
   Self.StdPageSizes[pfLegal].h := 1008;
+end;
+
+function TFPDF.FindUsedFontIndex(const AFontName: String): Integer;
+var
+  i, l: Integer;
+begin
+  l := Length(Self.UsedFonts);
+  Result := 0;
+  for i := 0 to l-1 do
+  begin
+    if LowerCase(Self.UsedFonts[i].FontName) = LowerCase(AFontName) then
+    begin
+      Result := i+1;
+      Break;
+    end;
+  end;
 end;
 
 {%region Image Handle and Conversion}
