@@ -2537,10 +2537,10 @@ function TFPDF._parsepng(vImageStream: TStream): TFPDFImageInfo;
 var
   s, color, alpha, LinData, LinColor, LinAlpha, ChunkType, ChunkData, DataDecompress: AnsiString;
   Width, Height, LenChunk, LenWidth, p, i, j, l, m,
-    LenColor, LenLinColor, LenLinAlpha: LongWord;
+    LenColor, LenLinColor, LenLinAlpha, ld: LongWord;
   BitDepth, ColorType, CompressionMethod, FilterMethod, InterlaceMethod: Byte;
 
-  procedure ReadNextChunk(S: TStream; out ChunckType: AnsiString; out ChunkData: AnsiString);
+  function ReadNextChunk(S: TStream; out ChunckType: AnsiString; out ChunkData: AnsiString): Integer;
   var
     Len: LongWord;
     crc: AnsiString;
@@ -2548,7 +2548,7 @@ var
     Len := 0;
     ChunckType := '';
     ChunkData := '';
-    S.ReadBuffer(Len, SizeOf(Len));  // 4 bytes
+    S.ReadBuffer(Len, 4);
     Len := SwapBytes(Len);
     SetLength(ChunckType, 4);
     S.ReadBuffer(ChunckType[1], 4);
@@ -2559,6 +2559,8 @@ var
     end;
     SetLength(crc, 4);
     S.ReadBuffer(crc[1], 4);
+
+    Result := Len;
   end;
 
 begin
@@ -2584,8 +2586,8 @@ begin
      Filter method:      1 byte
      Interlace method:   1 byte
   }
-  ReadNextChunk(vImageStream, ChunkType, ChunkData);
-  if(ChunkType <> 'IHDR') or (Length(ChunkData) <> 13) then
+  LenChunk := ReadNextChunk(vImageStream, ChunkType, ChunkData);
+  if(ChunkType <> 'IHDR') or (LenChunk <> 13) then
     Error('PNG - Incorrect IHDR');
 
   Width := 0;
@@ -2620,7 +2622,6 @@ begin
     Error('PNG - Interlacing not supported');
 
   // Scan chunks looking for palette, transparency and image data
-  LenChunk := 13;
   while (ChunkType <> 'IEND') and (LenChunk > 0) do
   begin
     if (ChunkType = 'PLTE') then
@@ -2658,11 +2659,12 @@ begin
     else if (ChunkType='IDAT') then
     begin
       // Read image data block
-      Result.data := Result.data + ChunkData;
+      ld := Length(Result.data);
+      SetLength(Result.data, ld+LenChunk);
+      Move(ChunkData[1], Result.data[ld+1], LenChunk);
     end;
 
-    ReadNextChunk(vImageStream, ChunkType, ChunkData);
-    LenChunk := Length(ChunkData);
+    LenChunk := ReadNextChunk(vImageStream, ChunkType, ChunkData);
   end;
 
   if (Result.cs='Indexed') and (Length(Result.pal)=0) then
@@ -3618,25 +3620,29 @@ var
   lb, lr: Integer;
   buf: AnsiString;
 begin
+  Result := '';
   ms := TMemoryStream.Create();
-  dcs := TDecompressionStream.Create(ms);
   try
+    ms.Write(PAnsiChar(StrIn)^, Length(StrIn));
+    ms.Position := 0;
+    dcs := TDecompressionStream.Create(ms);
     try
-      Result := '';
-      ms.Write(PAnsiChar(StrIn)^, Length(StrIn));
-      repeat
-        SetLength(buf, bufsize);
-        lb := dcs.Read(buf[1], bufsize);
-        lr := Length(Result);
-        SetLength(Result, lr+lb);
-        Move(buf[1], Result[lr+1], lb);
-      until lb < bufsize;
-    except
-      Result := '';
-      raise;
+      try
+        repeat
+          SetLength(buf, bufsize);
+          lb := dcs.Read(buf[1], bufsize);
+          lr := Length(Result);
+          SetLength(Result, lr+lb);
+          Move(buf[1], Result[lr+1], lb);
+        until lb < bufsize;
+      except
+        Result := '';
+        raise;
+      end;
+    finally
+      dcs.Free;
     end;
   finally
-    dcs.Free;
     ms.Free;
   end;
 end;
