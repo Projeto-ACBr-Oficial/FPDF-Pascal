@@ -2065,7 +2065,8 @@ begin
 
   with Self.Fonts.New do
   begin
-    Name := 'Times-BoldOblique';
+    Name := 'Times-BoldItalic';
+    FontName := 'Times-BoldOblique';
     cw := CW_TIMES_BOLD_ITALIC;
   end;
 
