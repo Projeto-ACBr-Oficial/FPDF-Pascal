@@ -5,7 +5,7 @@ FPDF Pascal
 Based on the library FPDF written in PHP by Olivier PLATHEY and
          Free JPDF Pascal from Jean Patrick e Gilson Nunes
 
- Copyright (C) 2023 Projeto ACBr
+ Copyright (C) 2023 Projeto ACBr - Daniel Simões de Almeida
 
  Permission is hereby granted, free of charge, to any person obtaining a copy of
  this software and associated documentation files (the "Software"), to deal in
@@ -33,15 +33,10 @@ Based on the library FPDF written in PHP by Olivier PLATHEY and
 
 unit fpdf;
 
-// Define USESYNAPSE if you want to force use of synapse
-{.$DEFINE USESYNAPSE}
-
 // If you don't want the AnsiString vs String warnings to bother you
 {.$DEFINE REMOVE_CAST_WARN}
 
 {$IfNDef FPC}
-  {$Define USESYNAPSE}
-
   {$IFDEF REMOVE_CAST_WARN}
     {$WARN IMPLICIT_STRING_CAST OFF}
     {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
@@ -70,17 +65,9 @@ unit fpdf;
 interface
 
 uses
-  Classes, SysUtils, Contnrs,
-  {$IfDef FPC}
-   zstream,
-  {$Else}
-   ZLib,
-  {$EndIf}
-  {$IFDEF USESYNAPSE}
-   httpsend, ssl_openssl
-  {$ELSE}
-   fphttpclient, opensslsockets
-  {$ENDIF};
+  Classes, Contnrs,
+  {$IfDef FPC}zstream{$Else}ZLib{$EndIf},
+  SysUtils;
 
 const
   FPDF_VERSION = '1.85';
@@ -119,7 +106,7 @@ type
   TFPDFImageInfo = record
     n: Integer;
     i: Integer;
-    filePath: String;
+    ImageName: String;
     data: AnsiString;
     w: Integer;
     h: Integer;
@@ -226,16 +213,8 @@ type
 
   TFPDF = class
   private
-    FProxyHost: String;
-    FProxyPass: String;
-    FProxyPort: String;
-    FProxyUser: String;
-
     function ConvertTextToAnsi(const AText: String): String;
     function FloatToStr(Value: Double): String;
-    procedure GetImageFromURL(const aURL: String; const aResponse: TStream);
-    procedure Image(img: TFPDFImageInfo; vX: Double = -9999; vY: Double = -9999;
-      vWidth: Double = 0; vHeight: Double = 0; const vLink: String = ''); overload;
     procedure DefineDefaultPageSizes;
     function FindUsedFontIndex(const AFontName: String): Integer;
 
@@ -302,6 +281,9 @@ type
     TimeZone: String;                     // TimeZone to be used on Date values
 
     procedure PopulateCoreFonts; virtual;
+    function FindUsedImage(const ImageName:String): TFPDFImageInfo;
+    procedure Image(img: TFPDFImageInfo; vX: Double = -9999; vY: Double = -9999;
+      vWidth: Double = 0; vHeight: Double = 0; const vLink: String = ''); overload;
 
     function _getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize; overload;
     function _getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize; overload;
@@ -316,8 +298,7 @@ type
     function _escape(const sText: AnsiString): AnsiString;
     function _textstring(const AString: String): String;
     function _dounderline(vX, vY: Double; const vText: String): String;
-    function _parseimage(const imgFile: String): TFPDFImageInfo; overload;
-    function _parseimage(vImageStream: TStream; const vTypeImageExt: String): TFPDFImageInfo; overload;
+    function _parseimage(vImageStream: TStream; const vImageExt: String): TFPDFImageInfo; overload;
     function _parsejpg(vImageStream: TStream): TFPDFImageInfo;
     function _parsepng(vImageStream: TStream): TFPDFImageInfo;
     procedure _out(const AData: AnsiString);
@@ -411,9 +392,9 @@ type
     procedure Write(vHeight: Double; const vText: String; const vLink: String = '');
     procedure Ln(vHeight: Double = 0);
 
-    procedure Image(const vFileOrURL: String; vX: Double = -9999; vY: Double = -9999;
-      vWidth: Double = 0; vHeight: Double = 0; const vLink: String = ''); overload;
-    procedure Image(vImageStream: TStream; const vTypeImageExt: String;
+    procedure Image(const vFile: String; vX: Double = -9999; vY: Double = -9999;
+      vWidth: Double = 0; vHeight: Double = 0; const vLink: String = ''); overload; virtual;
+    procedure Image(vImageStream: TStream; const vImageExt: String;
       vX: Double = -9999; vY: Double = -9999; vWidth: Double = 0;
       vHeight: Double = 0; const vLink: String = ''); overload;
 
@@ -429,11 +410,6 @@ type
     function SaveToString: AnsiString;
     procedure SaveToStream(AStream: TStream);
     procedure CreateContentStream(AStream: TStream; cs: TFPDFContentStream = csToViewBrowser; const AFileName: String = '');
-
-    property ProxyHost: String read FProxyHost write FProxyHost;
-    property ProxyPort: String read FProxyPort write FProxyPort;
-    property ProxyUser: String read FProxyUser write FProxyUser;
-    property ProxyPass: String read FProxyPass write FProxyPass;
   end;
 
 const
@@ -728,11 +704,6 @@ begin
   Self.UseUTF8 := {$IfDef USE_UTF8}True{$Else}False{$EndIf};
   Self.TimeZone := 'Z';
   Self.ZoomFactor := 0;
-
-  FProxyHost := '';
-  FProxyPass := '';
-  FProxyPort := '';
-  FProxyUser := '';
 end;
 
 destructor TFPDF.Destroy;
@@ -1675,57 +1646,53 @@ begin
     Self.y := Self.y + vHeight;
 end;
 
-procedure TFPDF.Image(const vFileOrURL: String; vX: Double; vY: Double;
+procedure TFPDF.Image(const vFile: String; vX: Double; vY: Double;
   vWidth: Double; vHeight: Double; const vLink: String);
 var
-  i, l: Integer;
+  l: Integer;
   img: TFPDFImageInfo;
-  AlreadyHaveImage: Boolean;
+  ext: String;
+  ms: TMemoryStream;
 begin
-  img.data := '';
-  //Put an image on the page
-  AlreadyHaveImage := False;
-  if (Length(Self.images) > 0) then
-  begin
-    for i := 0 to Length(Self.images)-1 do
-    begin
-      if (Self.images[i].filePath = vFileOrURL) then
-      begin
-        AlreadyHaveImage := True;
-        img := Self.images[i];
-        break;
-      end;
-    end;
-  end;
+  //Put an image file on the page
+  ext := StringReplace(UpperCase(ExtractFileExt(vFile)), '.', '', [rfReplaceAll]);
+  if (ext = '') then
+    Error('Image File without an extension!');
 
-  if not (AlreadyHaveImage) then
+  img := FindUsedImage(vFile);
+  if (img.data = '') then
   begin
-    //First use of image, get info
-    l := Length(Self.images);
-    SetLength(Self.images, l + 1);
-    Self.images[l] := _parseimage(vFileOrURL);
-    Self.images[l].i := l+1;
-    Self.images[l].filePath := vFileOrURL;
-    img := Self.images[l];
+    ms := TMemoryStream.Create;
+    try
+      ms.LoadFromFile(vFile);
+      //First use of image, get info
+      l := Length(Self.images);
+      SetLength(Self.images, l + 1);
+      Self.images[l] := _parseimage(ms, ext);
+      Self.images[l].i := l+1;
+      Self.images[l].ImageName := vFile;
+      img := Self.images[l];
+    finally
+      ms.Free;
+    end;
   end;
 
   Image(img, vX, vY, vWidth, vHeight, vLink);
 end;
 
-procedure TFPDF.Image(vImageStream: TStream; const vTypeImageExt: String;
+procedure TFPDF.Image(vImageStream: TStream; const vImageExt: String;
   vX: Double; vY: Double; vWidth: Double; vHeight: Double; const vLink: String);
 var
   l: Integer;
-  img: TFPDFImageInfo;
 begin
+  //Put an image Stream on the page
   l := Length(Self.images);
-  SetLength(Self.images, l + 1);
-  Self.images[l] := _parseimage(vImageStream, vTypeImageExt);
-  Self.images[l].i := Length(Self.images);
-  Self.images[l].filePath := '';
-  img := Self.images[l];
+  SetLength(Self.images, l+1);
+  Self.images[l] := _parseimage(vImageStream, vImageExt);
+  Self.images[l].i := l+1;
+  Self.images[l].ImageName := '';
 
-  Image(img, vX, vY, vWidth, vHeight);
+  Image(Self.images[l], vX, vY, vWidth, vHeight);
 end;
 
 function TFPDF.GetPageWidth: Double;
@@ -2237,6 +2204,25 @@ begin
     fuv1[214] := 8596;  fuv2[214] := 2;
     fuv1[216] := 10136; fuv2[216] := 24;
     fuv1[241] := 10161; fuv2[241] := 14;
+  end;
+end;
+
+function TFPDF.FindUsedImage(const ImageName: String): TFPDFImageInfo;
+var
+  i: Integer;
+begin
+  Result.data := '';
+
+  if (Length(Self.images) < 1) then
+   Exit;
+
+  for i := 0 to Length(Self.images)-1 do
+  begin
+    if (Self.images[i].ImageName = ImageName) then
+    begin
+      Result := Self.images[i];
+      break;
+    end;
   end;
 end;
 
@@ -3387,56 +3373,6 @@ begin
   Result := SysUtils.FloatToStr(Value, FPDFFormatSetings);
 end;
 
-{$IfDef USESYNAPSE}
-procedure TFPDF.GetImageFromURL(const aURL: String; const aResponse: TStream);
-var
-  vHTTP: THTTPSend;
-  Ok: Boolean;
-begin
-  vHTTP := THTTPSend.Create;
-  try
-    if (ProxyHost <> '') then
-    begin
-      vHTTP.ProxyHost := ProxyHost;
-      vHTTP.ProxyPort := ProxyPort;
-      vHTTP.ProxyUser := ProxyUser;
-      vHTTP.ProxyPass := ProxyPass;
-    end;
-    Ok := vHTTP.HTTPMethod('GET', aURL);
-    if Ok then
-    begin
-      aResponse.Seek(0, soBeginning);
-      aResponse.CopyFrom(vHTTP.Document, 0);
-    end
-    else
-      Error('Http Error: '+IntToStr(vHTTP.ResultCode)+' when downloading from: '+aURL);
-  finally
-    vHTTP.Free;
-  end;
-end;
-
-{$Else}
-procedure TFPDF.GetImageFromURL(const aURL: String; const aResponse: TStream);
-var
-  vHTTP: TFPHTTPClient;
-begin
-  vHTTP := TFPHTTPClient.Create(nil);
-  try
-    if (ProxyHost <> '') then
-    begin
-      vHTTP.Proxy.Host := ProxyHost;
-      vHTTP.Proxy.Port := StrToIntDef(ProxyPort, 0);
-      vHTTP.Proxy.UserName := ProxyUser;
-      vHTTP.Proxy.Password := ProxyPass;
-    end;
-
-    vHTTP.Get(aURL, aResponse);
-  finally
-    vHTTP.Free;
-  end;
-end;
-{$EndIf}
-
 procedure TFPDF.Image(img: TFPDFImageInfo; vX: Double; vY: Double;
   vWidth: Double; vHeight: Double; const vLink: String);
 var
@@ -3517,59 +3453,12 @@ end;
 
 {%region Image Handle and Conversion}
 
-function TFPDF._parseimage(const imgFile: String): TFPDFImageInfo;
-var
-  vTypeImageExt, s: String;
-  IsURL: Boolean;
-  ms: TMemoryStream;
-begin
-  s := LowerCase(imgFile);
-  IsURL := ((Pos('http://', s) > 0) or (Pos('https://', s) > 0));
-  if IsURL then
-  begin
-    vTypeImageExt := '';
-
-    if (Pos('.jpg', s) > 0) then
-      vTypeImageExt := 'JPG'
-    else if (Pos('.jpeg', s) > 0) then
-      vTypeImageExt := 'JPG'
-    else if (Pos('.png', s) > 0) then
-      vTypeImageExt := 'PNG'
-    else if (Pos('.bmp', s) > 0) then
-      vTypeImageExt := 'BMP';
-  end
-  else
-  begin
-    vTypeImageExt := StringReplace(UpperCase(ExtractFileExt(imgFile)), '.', '', [rfReplaceAll]);
-
-    if (vTypeImageExt = '') then
-      Error('Image File without an extension!');
-  end;
-
-  ms := TMemoryStream.Create;
-  try
-    try
-      if IsURL then
-        GetImageFromURL(imgFile, ms)
-      else
-        ms.LoadFromFile(imgFile);
-
-      Result := _parseimage(ms, vTypeImageExt);
-    except
-      On E: Exception do
-        Error('Unsupported image formatting or image missing: ' + vTypeImageExt, E);
-    end;
-  finally
-    ms.Free;
-  end;
-end;
-
-function TFPDF._parseimage(vImageStream: TStream; const vTypeImageExt: String): TFPDFImageInfo;
+function TFPDF._parseimage(vImageStream: TStream; const vImageExt: String): TFPDFImageInfo;
 var
   ex: String;
 begin
   Result.data := '';
-  ex := UpperCase(Trim(vTypeImageExt));
+  ex := UpperCase(Trim(vImageExt));
   if (ex = '') then
     Error('Image Stream without an extension!');
 
