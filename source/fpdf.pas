@@ -1,9 +1,7 @@
 {
 
-FPDF Pascal
-
-Based on the library FPDF written in PHP by Olivier PLATHEY and
-         Free JPDF Pascal from Jean Patrick e Gilson Nunes
+ FPDF Pascal
+ https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal
 
  Copyright (C) 2023 Projeto ACBr - Daniel Simões de Almeida
 
@@ -29,6 +27,11 @@ Based on the library FPDF written in PHP by Olivier PLATHEY and
  used in advertising or otherwise to promote the sale, use or other dealings in
  this Software without prior written authorization from <Projeto ACBr>.
 
+ Based on:
+ - The library FPDF written in PHP by Olivier PLATHEY
+   http://www.fpdf.org/
+ - Free JPDF Pascal from Jean Patrick e Gilson Nunes
+   https://github.com/jepafi/Free-JPDF-Pascal
 }
 
 unit fpdf;
@@ -325,6 +328,7 @@ type
 
     function GzCompress(const StrIn: AnsiString; CompLevel: TCompressionLevel = clMax): AnsiString;
     function GzDecompress(const StrIn: AnsiString): AnsiString;
+    procedure InternalCreate; virtual;
 
   public
     constructor Create(AOrientation: TFPDFOrientation = poPortrait;
@@ -604,6 +608,8 @@ var
   margin: Double;
   s: String;
 begin
+  InternalCreate;
+
   // Initialization of properties
   Self.state := 0;
   Self.page := 0;
@@ -704,6 +710,11 @@ begin
   Self.UseUTF8 := {$IfDef USE_UTF8}True{$Else}False{$EndIf};
   Self.TimeZone := 'Z';
   Self.ZoomFactor := 0;
+end;
+
+procedure TFPDF.InternalCreate;
+begin
+  {}
 end;
 
 destructor TFPDF.Destroy;
