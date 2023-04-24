@@ -88,6 +88,10 @@ type
   WideString = String;
 {$EndIf}
 
+const
+  cDefBarHeight = 8;
+  cDefBarWidth = 0.5; //0.35;
+
 type
 
   TFPDFExt = class;
@@ -102,22 +106,31 @@ type
   end;
 
 
-  { TFPDFScriptEAN }
+  { TFPDFScriptCodeEAN }
 
-  TFPDFScriptEAN = class(TFPDFScripts)
+  TFPDFScriptCodeEAN = class(TFPDFScripts)
   private
     procedure CheckBarCode(var ABarCode: string; BarCodeLen: integer;
       const BarCodeName: string);
     function AdjustBarCodeSize(const ABarCode: string; BarCodeLen: integer): string;
     function CalcBinCode(const ABarCode: string): String;
-    procedure DrawBarcode(const ABarCode: string; vX: double; vY: double;
+    procedure DrawBarcode(const BinCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
-    function GetCheckDigit(const ABarCode: string): integer;
-    function TestCheckDigit(const ABarCode: string): boolean;
+    function GetCheckDigit(const ABarCode: string; const BarCodeName: string): integer;
+    function TestCheckDigit(const ABarCode: string; const BarCodeName: string): boolean;
   public
     procedure CodeEAN13(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
     procedure CodeEAN8(const ABarCode: string; vX: double; vY: double;
+      BarHeight: double = 0; BarWidth: double = 0);
+  end;
+
+  { TFPDFScriptCode39 }
+
+  TFPDFScriptCode39 = class(TFPDFScripts)
+  private
+  public
+    procedure Code39(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
   end;
 
@@ -129,7 +142,6 @@ type
     fProxyPass: string;
     fProxyPort: string;
     fProxyUser: string;
-    fEAN: TFPDFScriptEAN;
 
     procedure GetImageFromURL(const aURL: string; const aResponse: TStream);
   protected
@@ -144,6 +156,8 @@ type
     procedure CodeEAN13(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
     procedure CodeEAN8(const ABarCode: string; vX: double; vY: double;
+      BarHeight: double = 0; BarWidth: double = 0);
+    procedure Code39(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
 
     property ProxyHost: string read fProxyHost write fProxyHost;
@@ -165,29 +179,31 @@ begin
   fpFPDF := AFPDF;
 end;
 
-{ TFPDFScriptEAN }
+{ TFPDFScriptCodeEAN }
 
-procedure TFPDFScriptEAN.CodeEAN13(const ABarCode: string; vX: double;
+procedure TFPDFScriptCodeEAN.CodeEAN13(const ABarCode: string; vX: double;
   vY: double; BarHeight: double; BarWidth: double);
 var
-  s: string;
+  s, BinCode: string;
 begin
   s := Trim(ABarCode);
   CheckBarCode(s, 13, 'EAN13');
-  DrawBarcode(s, vx, vY, BarHeight, BarWidth);
+  BinCode := CalcBinCode(s);
+  DrawBarcode(BinCode, vx, vY, BarHeight, BarWidth);
 end;
 
-procedure TFPDFScriptEAN.CodeEAN8(const ABarCode: string; vX: double;
+procedure TFPDFScriptCodeEAN.CodeEAN8(const ABarCode: string; vX: double;
   vY: double; BarHeight: double; BarWidth: double);
 var
-  s: string;
+  s, BinCode: string;
 begin
   s := Trim(ABarCode);
   CheckBarCode(s, 8, 'EAN8');
-  DrawBarcode(s, vx, vY, BarHeight, BarWidth);
+  BinCode := CalcBinCode(s);
+  DrawBarcode(BinCode, vx, vY, BarHeight, BarWidth);
 end;
 
-procedure TFPDFScriptEAN.CheckBarCode(var ABarCode: string;
+procedure TFPDFScriptCodeEAN.CheckBarCode(var ABarCode: string;
   BarCodeLen: integer; const BarCodeName: string);
 var
   l: integer;
@@ -199,17 +215,17 @@ begin
     ABarCode := AdjustBarCodeSize(ABarCode, BarCodeLen - 1);
 
   if (l = BarCodeLen - 1) then
-    ABarCode := ABarCode + IntToStr(GetCheckDigit(ABarCode))
+    ABarCode := ABarCode + IntToStr(GetCheckDigit(ABarCode, BarCodeName))
   else if (l = BarCodeLen) then
   begin
-    if not TestCheckDigit(ABarCode) then
+    if not TestCheckDigit(ABarCode, BarCodeName) then
       fpFPDF.Error(Format('Invalid %s Check Digit: %s', [BarCodeName, ABarCode]));
   end
   else
     fpFPDF.Error(Format('Invalid %s Code Len: %s', [BarCodeName, ABarCode]));
 end;
 
-function TFPDFScriptEAN.AdjustBarCodeSize(const ABarCode: string;
+function TFPDFScriptCodeEAN.AdjustBarCodeSize(const ABarCode: string;
   BarCodeLen: integer): string;
 begin
   Result := Trim(copy(ABarCode, 1, BarCodeLen));
@@ -217,7 +233,8 @@ begin
     Result := StringOfChar('0', BarCodeLen - Length(Result)) + Result;
 end;
 
-function TFPDFScriptEAN.GetCheckDigit(const ABarCode: string): integer;
+function TFPDFScriptCodeEAN.GetCheckDigit(const ABarCode: string;
+  const BarCodeName: string): integer;
 var
   t, l, i: integer;
   v: integer;
@@ -229,22 +246,23 @@ begin
   begin
     v := StrToIntDef(ABarCode[i], -1);
     if (v < 0) then
-      fpFPDF.Error(Format('Invalid Digits in Barcode: %s', [ABarCode]));
+      fpFPDF.Error(Format('Invalid Digits in %s: %s', [BarCodeName, ABarCode]));
     t := t + (v * IfThen(odd(i), 1, 3));
   end;
 
   Result := (10 - (t mod 10)) mod 10;
 end;
 
-function TFPDFScriptEAN.TestCheckDigit(const ABarCode: string): boolean;
+function TFPDFScriptCodeEAN.TestCheckDigit(const ABarCode: string;
+  const BarCodeName: string): boolean;
 var
   l: integer;
 begin
   l := Length(ABarCode);
-  Result := (l > 0) and (StrToIntDef(ABarCode[l], -1) = GetCheckDigit(copy(ABarCode, 1, l-1)));
+  Result := (l > 0) and (StrToIntDef(ABarCode[l], -1) = GetCheckDigit(copy(ABarCode, 1, l-1), BarCodeName));
 end;
 
-function TFPDFScriptEAN.CalcBinCode(const ABarCode: string): String;
+function TFPDFScriptCodeEAN.CalcBinCode(const ABarCode: string): String;
 const
   codes: array[0..2] of array[0..9] of string =
     (('0001101', '0011001', '0010011', '0111101', '0100011', '0110001',
@@ -253,7 +271,7 @@ const
       '0000101', '0010001', '0001001', '0010111'),
      ('1110010', '1100110', '1101100', '1000010', '1011100', '1001110',
       '1010000', '1000100', '1001000', '1110100'));
-  parities: array[0..9] of array[0..5] of integer =
+  parities: array[0..9] of array[0..5] of Byte =
     ((0, 0, 0, 0, 0, 0),
      (0, 0, 1, 0, 1, 1),
      (0, 0, 1, 1, 0, 1),
@@ -267,15 +285,12 @@ const
 var
   BinCode: string;
   v, i, l, p, m: integer;
-  pa: array[0..5] of integer;
+  pa: array[0..5] of Byte;
 
 begin
   l := Length(ABarCode);
-  if (l <> 13) and (l <> 12) and (l <> 8) then
-     fpFPDF.Error(Format('Invalid length for EAN/UPC Barcode: %s', [ABarCode]));
-
   Result := '101';
-  if (l = 13) then
+  if odd(l) then
   begin
     p := 1;
     v := StrToInt(ABarCode[1]);
@@ -305,25 +320,88 @@ begin
   Result := Result + '101';
 end;
 
-procedure TFPDFScriptEAN.DrawBarcode(const ABarCode: string; vX: double;
+procedure TFPDFScriptCodeEAN.DrawBarcode(const BinCode: string; vX: double;
   vY: double; BarHeight: double; BarWidth: double);
 var
-  BinCode: String;
   l, i: Integer;
 begin
   if (BarHeight = 0) then
-    BarHeight := 16;
+    BarHeight := cDefBarHeight;
 
   if (BarWidth = 0) then
-    BarWidth := 0.35;
+    BarWidth := cDefBarWidth;
 
   //Draw bars
-  BinCode := CalcBinCode(ABarCode);
   l := Length(BinCode);
   for i := 1 to l do
-  begin
     if (BinCode[i] = '1') then
       fpFPDF.Rect(vX+i*BarWidth, vY, BarWidth, BarHeight, 'F');
+end;
+
+{ TFPDFScriptCode39 }
+
+procedure TFPDFScriptCode39.Code39(const ABarCode: string; vX: double;
+  vY: double; BarHeight: double; BarWidth: double);
+const
+  Chars: String = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. *$/+%';
+  Bars: array[0..43] of array[0..8] of Byte =
+    ( (0,0,0,1,1,0,1,0,0), (1,0,0,1,0,0,0,0,1), (0,0,1,1,0,0,0,0,1), (1,0,1,1,0,0,0,0,0),
+      (0,0,0,1,1,0,0,0,1), (1,0,0,1,1,0,0,0,0), (0,0,1,1,1,0,0,0,0), (0,0,0,1,0,0,1,0,1),
+      (1,0,0,1,0,0,1,0,0), (0,0,1,1,0,0,1,0,0), (1,0,0,0,0,1,0,0,1), (0,0,1,0,0,1,0,0,1),
+      (1,0,1,0,0,1,0,0,0), (0,0,0,0,1,1,0,0,1), (1,0,0,0,1,1,0,0,0), (0,0,1,0,1,1,0,0,0),
+      (0,0,0,0,0,1,1,0,1), (1,0,0,0,0,1,1,0,0), (0,0,1,0,0,1,1,0,0), (0,0,0,0,1,1,1,0,0),
+      (1,0,0,0,0,0,0,1,1), (0,0,1,0,0,0,0,1,1), (1,0,1,0,0,0,0,1,0), (0,0,0,0,1,0,0,1,1),
+      (1,0,0,0,1,0,0,1,0), (0,0,1,0,1,0,0,1,0), (0,0,0,0,0,0,1,1,1), (1,0,0,0,0,0,1,1,0),
+      (0,0,1,0,0,0,1,1,0), (0,0,0,0,1,0,1,1,0), (1,1,0,0,0,0,0,0,1), (0,1,1,0,0,0,0,0,1),
+      (1,1,1,0,0,0,0,0,0), (0,1,0,0,1,0,0,0,1), (1,1,0,0,1,0,0,0,0), (0,1,1,0,1,0,0,0,0),
+      (0,1,0,0,0,0,1,0,1), (1,1,0,0,0,0,1,0,0), (0,1,1,0,0,0,1,0,0), (0,1,0,0,1,0,1,0,0),
+      (0,1,0,1,0,1,0,0,0), (0,1,0,1,0,0,0,1,0), (0,1,0,0,0,1,0,1,0), (0,0,0,1,0,1,0,1,0) );
+var
+  wide, narrow, gap, lineWidth: Double;
+  s: String;
+  l, i, j, p: Integer;
+  c: Char;
+  seq: array[0..8] of Byte;
+begin
+  if (BarHeight = 0) then
+    BarHeight := cDefBarHeight;
+
+  if (BarWidth = 0) then
+    BarWidth := cDefBarWidth;
+
+  s := UpperCase(ABarCode);
+  l := Length(s);
+  if (l = 0) then
+    Exit;
+
+  wide := BarWidth;
+  narrow := wide / 3 ;
+  gap := narrow;
+
+  if (s[l] <> '*') then
+    s := s+'*';
+  if (s[1] <> '*') then
+    s := '*'+s;
+
+  l := Length(s);
+  for i := 1 to l do
+  begin
+    c := s[i];
+    p := pos(c, Chars);
+    if (p = 0) then
+      fpFPDF.Error('Code39, invalid Char: '+c);
+
+    seq := Bars[p-1];
+    for j := 0 to High(seq) do
+    begin
+      lineWidth := IfThen(seq[j] = 0, narrow, wide);
+      if ((j mod 2) = 0) then
+        fpFPDF.Rect(vX, vY, lineWidth, BarHeight, 'F');
+
+      vX := vX + lineWidth;
+    end;
+
+    vX := vX + gap;
   end;
 end;
 
@@ -336,13 +414,10 @@ begin
   fProxyPass := '';
   fProxyPort := '';
   fProxyUser := '';
-
-  fEAN := TFPDFScriptEAN.Create(Self);
 end;
 
 destructor TFPDFExt.Destroy;
 begin
-  fEAN.Free;
   inherited Destroy;
 end;
 
@@ -388,14 +463,41 @@ end;
 
 procedure TFPDFExt.CodeEAN13(const ABarCode: string; vX: double; vY: double;
   BarHeight: double; BarWidth: double);
+var
+  script: TFPDFScriptCodeEAN;
 begin
-  fEAN.CodeEAN13(ABarCode, vX, vY, BarHeight, BarWidth);
+  script := TFPDFScriptCodeEAN.Create(Self);
+  try
+    script.CodeEAN13(ABarCode, vX, vY, BarHeight, BarWidth);
+  finally
+    script.Free;
+  end;
 end;
 
 procedure TFPDFExt.CodeEAN8(const ABarCode: string; vX: double; vY: double;
   BarHeight: double; BarWidth: double);
+var
+  script: TFPDFScriptCodeEAN;
 begin
-  fEAN.CodeEAN8(ABarCode, vX, vY, BarHeight, BarWidth);
+  script := TFPDFScriptCodeEAN.Create(Self);
+  try
+    script.CodeEAN8(ABarCode, vX, vY, BarHeight, BarWidth);
+  finally
+    script.Free;
+  end;
+end;
+
+procedure TFPDFExt.Code39(const ABarCode: string; vX: double; vY: double;
+  BarHeight: double; BarWidth: double);
+var
+  script: TFPDFScriptCode39;
+begin
+  script := TFPDFScriptCode39.Create(Self);
+  try
+    script.Code39(ABarCode, vX, vY, BarHeight, BarWidth);
+  finally
+    script.Free;
+  end;
 end;
 
 {$IfDef USESYNAPSE}
