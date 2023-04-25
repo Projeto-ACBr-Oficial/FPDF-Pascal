@@ -178,10 +178,14 @@ type
     angle: Double;
 
     procedure _endpage; override;
+    procedure _Arc(vX1, vY1, vX2, vY2, vX3, vY3: Double);
   public
     procedure InternalCreate; override;
 
     procedure Rotate(NewAngle: Double = 0; vX: Double = -1; vY: Double = -1);
+    procedure RoundedRect(vX, vY, vWidth, vHeight: Double;
+      vRadius: Double = 5; vCorners: String = '1234'; vStyle: String = '');
+
     procedure Image(const vFileOrURL: string; vX: double = -9999;
       vY: double = -9999; vWidth: double = 0; vHeight: double = 0;
       const vLink: string = ''); overload; override;
@@ -847,6 +851,7 @@ begin
 end;
 
 { http://www.fpdf.org/en/script/script2.php - Olivier }
+{ See also: http://www.fpdf.org/en/script/script9.php - Watermark }
 procedure TFPDFExt.Rotate(NewAngle: Double; vX: Double; vY: Double);
 var
   c, s: Extended;
@@ -859,10 +864,9 @@ begin
     vY := Self.y;
 
   if (Self.angle <> 0) then
-      _out('Q');
+    _out('Q');
 
   Self.angle := NewAngle;
-
   if (NewAngle <> 0) then
   begin
     NewAngle := NewAngle * Pi/180;
@@ -872,6 +876,74 @@ begin
     cy := (Self.h-vY) * Self.k;
     _out(Format('q %.5f %.5f %.5f %.5f %.2f %.2f cm 1 0 0 1 %.2f %.2f cm', [c, s, -s, c, cx, cy, -cx, -cy], FPDFFormatSetings));
   end;
+end;
+
+{ http://www.fpdf.org/en/script/script35.php - Christophe Prugnaud }
+procedure TFPDFExt.RoundedRect(vX, vY, vWidth, vHeight: Double;
+  vRadius: Double = 5; vCorners: String = '1234'; vStyle: String = '');
+var
+  vK, hp, xc, yc: Double;
+  op: Char;
+  MyArc: Extended;
+begin
+  vK := Self.k;
+  hp := Self.h;
+  if (vStyle='F') then
+    op := 'f'
+  else if (vStyle='FD') or (vStyle='DF') then
+    op := 'B'
+  else
+    op := 'S';
+
+  MyArc := 4/3 * (sqrt(2) - 1);
+  _out(Format('%.2f %.2f m', [(vX+vRadius)*vk, (hp-vY)*k], FPDFFormatSetings));
+
+  xc := vx+vWidth-vRadius;
+  yc := vY+vRadius;
+  _out(Format('%.2f %.2f l', [xc*vK, (hp-vY)*vK], FPDFFormatSetings));
+  if (pos('2', vCorners) = 0) then
+    _out(Format('%.2f %.2f l', [(vX+vWidth)*vK,(hp-vY)*vK], FPDFFormatSetings))
+  else
+    _Arc(xc+vRadius*MyArc, yc-vRadius, xc+vRadius, yc-vRadius*MyArc, xc+vRadius, yc);
+
+  xc := vX+vWidth-vRadius;
+  yc := vY+vHeight-vRadius;
+  _out(Format('%.2f %.2f l', [(vX+vWidth)*vK,(hp-yc)*vK], FPDFFormatSetings));
+  if (pos('3', vCorners) = 0) then
+    _out(Format('%.2f %.2f l', [(vX+vWidth)*vk,(hp-(vY+vHeight))*vK], FPDFFormatSetings))
+  else
+    _Arc(xc+vRadius, yc+vRadius*MyArc, xc+vRadius*MyArc, yc+vRadius, xc, yc+vRadius);
+
+  xc := vX+vRadius;
+  yc := vY+vHeight-vRadius;
+  _out(Format('%.2f %.2f l', [xc*vK,(hp-(vY+vHeight))*vK] , FPDFFormatSetings));
+  if (pos('4', vCorners) = 0) then
+    _out(Format('%.2f %.2f l', [(vX)*vK,(hp-(vY+vHeight))*vK], FPDFFormatSetings))
+  else
+    _Arc(xc-vRadius*MyArc, yc+vRadius, xc-vRadius, yc+vRadius*MyArc, xc-vRadius, yc);
+
+  xc := vx+vRadius;
+  yc := vY+vRadius;
+  _out(Format('%.2f %.2f l', [(vX)*vK, (hp-yc)*vK], FPDFFormatSetings));
+  if (pos('1', vCorners) = 0) then
+  begin
+    _out(Format('%.2f %.2f l', [(vX)*vK, (hp-vY)*vK], FPDFFormatSetings));
+    _out(Format('%.2f %.2f l', [(vx+vRadius)*vK,(hp-vY)*vK], FPDFFormatSetings));
+  end
+  else
+    _Arc(xc-vRadius, yc-vRadius*MyArc, xc-vRadius*MyArc, yc-vRadius, xc, yc-vRadius);
+
+  _out(op);
+end;
+
+procedure TFPDFExt._Arc(vX1, vY1, vX2, vY2, vX3, vY3: Double);
+var
+  vh: Double;
+begin
+  vh := Self.h;
+  _out(Format('%.2f %.2f %.2f %.2f %.2f %.2f c ',
+          [vX1*Self.k, (vh-vY1)*Self.k, vX2*Self.k, (vh-vY2)*Self.k, vX3*Self.k, (vh-vY3)*Self.k],
+          FPDFFormatSetings));
 end;
 
 procedure TFPDFExt.Image(const vFileOrURL: string; vX: double; vY: double;
