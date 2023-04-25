@@ -107,6 +107,7 @@ type
 
 
   { TFPDFScriptCodeEAN }
+  { http://www.fpdf.org/en/script/script5.php - Olivier }
 
   TFPDFScriptCodeEAN = class(TFPDFScripts)
   private
@@ -126,6 +127,7 @@ type
   end;
 
   { TFPDFScriptCode39 }
+  { http://www.fpdf.org/en/script/script46.php - The-eh }
 
   TFPDFScriptCode39 = class(TFPDFScripts)
   private
@@ -135,10 +137,17 @@ type
   end;
 
   { TFPDFScriptCode128 }
+  { http://www.fpdf.org/en/script/script88.php - Roland Gautier }
 
   TCode128 = (code128A, code128B, code128C);
   TFPDFScriptCode128 = class(TFPDFScripts)
   private
+    fABCSet: String;                                  // C128 eligible character set
+    fASet: String;                                    // Set A eligible Character
+    fBSet: String;                                    // Set B eligible Character
+    fCSet: String;                                    // Set C eligible character
+    fSetTo: array [TCode128] of string;
+    fSetFrom: array [TCode128] of string;
   public
     constructor Create(AFPDF: TFPDFExt); override;
     procedure Code128(const ABarCode: string; vX: double; vY: double;
@@ -169,6 +178,8 @@ type
       BarHeight: double = 0; BarWidth: double = 0);
     procedure Code39(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
+    procedure Code128(const ABarCode: string; vX: double; vY: double;
+      BarHeight: double = 0; BarWidth: double = 0);
 
     property ProxyHost: string read fProxyHost write fProxyHost;
     property ProxyPort: string read fProxyPort write fProxyPort;
@@ -179,7 +190,7 @@ type
 implementation
 
 uses
-  Math;
+  Math, StrUtils;
 
 { TFPDFScripts }
 
@@ -423,19 +434,313 @@ end;
 { TFPDFScriptCode128 }
 
 constructor TFPDFScriptCode128.Create(AFPDF: TFPDFExt);
+var
+  i: Integer;
+  set128: TCode128;
 begin
   inherited Create(AFPDF);
 
+  fABCSet := '';
+  for i := 32 to 95 do                     // character sets
+    fABCSet := fABCSet + chr(i);
+
+  fASet := fABCSet;
+  fBSet := fABCSet;
+
+  for i := 0 to 31 do
+  begin
+    fABCSet := fABCSet + chr(i);
+    fASet := fASet + chr(i);
+  end;
+
+  for i := 96 to 127 do
+  begin
+   fABCSet := fABCSet + chr(i);
+   fBSet := fBSet + chr(i);
+  end;
+
+  for i := 200 to 210 do                   // control 128
+  begin
+    fABCSet := fABCSet + chr(i);
+    fASet := fASet + chr(i);
+    fBSet := fBSet + chr(i);
+  end;
+
+  fCSet := '0123456789'+chr(206);
+
+  for set128 := Low(TCode128) to High(TCode128) do
+  begin
+    fSetFrom[set128] := '';
+    fSetTo[set128] := '';
+  end;
+
+  for i := 0 to 95 do                      // converters for sets A & B
+  begin
+    fSetFrom[code128A] := fSetFrom[code128A] + chr(i);
+    fSetFrom[code128B] := fSetFrom[code128B] + chr(i + 32);
+    fSetTo[code128A] := fSetTo[code128A] + chr( IfThen(i < 32, i+64, i-32) );
+    fSetTo[code128B] := fSetTo[code128B] + chr(i);
+  end;
+
+  for i := 96 to 106 do                    // control of sets A & B
+  begin
+    fSetFrom[code128A] := fSetFrom[code128A] + chr(i + 104);
+    fSetFrom[code128B] := fSetFrom[code128B] + chr(i + 104);
+    fSetTo[code128A] := fSetTo[code128A] + chr(i);
+    fSetTo[code128B] := fSetTo[code128B] + chr(i);
+  end;
 end;
 
 procedure TFPDFScriptCode128.Code128(const ABarCode: string; vX: double;
   vY: double; BarHeight: double; BarWidth: double);
+type
+  T128Parity = array [0..5] of Byte;
 const
-  C128Start: array[TCode128] of Byte = (103,104,105);  // Set selection characters at the start of C128
-  C128Swap: array[TCode128] of Byte = (101,100,99);    // Set change characters
+  C128Start: array[TCode128] of Byte = (103, 104, 105);  // Set selection characters at the start of C128
+  C128Swap: array[TCode128] of Byte  = (101, 100, 99);   // Set change characters
 
+  C128Table: array [0..107] of T128Parity =             // Code table 128
+       (
+         (2, 1, 2, 2, 2, 2),           //0 : [ ]
+         (2, 2, 2, 1, 2, 2),           //1 : [!]
+         (2, 2, 2, 2, 2, 1),           //2 : ["]
+         (1, 2, 1, 2, 2, 3),           //3 : [#]
+         (1, 2, 1, 3, 2, 2),           //4 : [$]
+         (1, 3, 1, 2, 2, 2),           //5 : [%]
+         (1, 2, 2, 2, 1, 3),           //6 : [&]
+         (1, 2, 2, 3, 1, 2),           //7 : [']
+         (1, 3, 2, 2, 1, 2),           //8 : [(]
+         (2, 2, 1, 2, 1, 3),           //9 : [)]
+         (2, 2, 1, 3, 1, 2),           //10 : [*]
+         (2, 3, 1, 2, 1, 2),           //11 : [+]
+         (1, 1, 2, 2, 3, 2),           //12 : [,]
+         (1, 2, 2, 1, 3, 2),           //13 : [-]
+         (1, 2, 2, 2, 3, 1),           //14 : [.]
+         (1, 1, 3, 2, 2, 2),           //15 : [/]
+         (1, 2, 3, 1, 2, 2),           //16 : [0]
+         (1, 2, 3, 2, 2, 1),           //17 : [1]
+         (2, 2, 3, 2, 1, 1),           //18 : [2]
+         (2, 2, 1, 1, 3, 2),           //19 : [3]
+         (2, 2, 1, 2, 3, 1),           //20 : [4]
+         (2, 1, 3, 2, 1, 2),           //21 : [5]
+         (2, 2, 3, 1, 1, 2),           //22 : [6]
+         (3, 1, 2, 1, 3, 1),           //23 : [7]
+         (3, 1, 1, 2, 2, 2),           //24 : [8]
+         (3, 2, 1, 1, 2, 2),           //25 : [9]
+         (3, 2, 1, 2, 2, 1),           //26 : [:]
+         (3, 1, 2, 2, 1, 2),           //27 : [,]
+         (3, 2, 2, 1, 1, 2),           //28 : [<]
+         (3, 2, 2, 2, 1, 1),           //29 : [=]
+         (2, 1, 2, 1, 2, 3),           //30 : [>]
+         (2, 1, 2, 3, 2, 1),           //31 : [?]
+         (2, 3, 2, 1, 2, 1),           //32 : [@]
+         (1, 1, 1, 3, 2, 3),           //33 : [A]
+         (1, 3, 1, 1, 2, 3),           //34 : [B]
+         (1, 3, 1, 3, 2, 1),           //35 : [C]
+         (1, 1, 2, 3, 1, 3),           //36 : [D]
+         (1, 3, 2, 1, 1, 3),           //37 : [E]
+         (1, 3, 2, 3, 1, 1),           //38 : [F]
+         (2, 1, 1, 3, 1, 3),           //39 : [G]
+         (2, 3, 1, 1, 1, 3),           //40 : [H]
+         (2, 3, 1, 3, 1, 1),           //41 : [I]
+         (1, 1, 2, 1, 3, 3),           //42 : [J]
+         (1, 1, 2, 3, 3, 1),           //43 : [K]
+         (1, 3, 2, 1, 3, 1),           //44 : [L]
+         (1, 1, 3, 1, 2, 3),           //45 : [M]
+         (1, 1, 3, 3, 2, 1),           //46 : [N]
+         (1, 3, 3, 1, 2, 1),           //47 : [O]
+         (3, 1, 3, 1, 2, 1),           //48 : [P]
+         (2, 1, 1, 3, 3, 1),           //49 : [Q]
+         (2, 3, 1, 1, 3, 1),           //50 : [R]
+         (2, 1, 3, 1, 1, 3),           //51 : [S]
+         (2, 1, 3, 3, 1, 1),           //52 : [T]
+         (2, 1, 3, 1, 3, 1),           //53 : [U]
+         (3, 1, 1, 1, 2, 3),           //54 : [V]
+         (3, 1, 1, 3, 2, 1),           //55 : [W]
+         (3, 3, 1, 1, 2, 1),           //56 : [X]
+         (3, 1, 2, 1, 1, 3),           //57 : [Y]
+         (3, 1, 2, 3, 1, 1),           //58 : [Z]
+         (3, 3, 2, 1, 1, 1),           //59 : [[]
+         (3, 1, 4, 1, 1, 1),           //60 : [\]
+         (2, 2, 1, 4, 1, 1),           //61 : []]
+         (4, 3, 1, 1, 1, 1),           //62 : [^]
+         (1, 1, 1, 2, 2, 4),           //63 : [_]
+         (1, 1, 1, 4, 2, 2),           //64 : [`]
+         (1, 2, 1, 1, 2, 4),           //65 : [a]
+         (1, 2, 1, 4, 2, 1),           //66 : [b]
+         (1, 4, 1, 1, 2, 2),           //67 : [c]
+         (1, 4, 1, 2, 2, 1),           //68 : [d]
+         (1, 1, 2, 2, 1, 4),           //69 : [e]
+         (1, 1, 2, 4, 1, 2),           //70 : [f]
+         (1, 2, 2, 1, 1, 4),           //71 : [g]
+         (1, 2, 2, 4, 1, 1),           //72 : [h]
+         (1, 4, 2, 1, 1, 2),           //73 : [i]
+         (1, 4, 2, 2, 1, 1),           //74 : [j]
+         (2, 4, 1, 2, 1, 1),           //75 : [k]
+         (2, 2, 1, 1, 1, 4),           //76 : [l]
+         (4, 1, 3, 1, 1, 1),           //77 : [m]
+         (2, 4, 1, 1, 1, 2),           //78 : [n]
+         (1, 3, 4, 1, 1, 1),           //79 : [o]
+         (1, 1, 1, 2, 4, 2),           //80 : [p]
+         (1, 2, 1, 1, 4, 2),           //81 : [q]
+         (1, 2, 1, 2, 4, 1),           //82 : [r]
+         (1, 1, 4, 2, 1, 2),           //83 : [s]
+         (1, 2, 4, 1, 1, 2),           //84 : [t]
+         (1, 2, 4, 2, 1, 1),           //85 : [u]
+         (4, 1, 1, 2, 1, 2),           //86 : [v]
+         (4, 2, 1, 1, 1, 2),           //87 : [w]
+         (4, 2, 1, 2, 1, 1),           //88 : [x]
+         (2, 1, 2, 1, 4, 1),           //89 : [y]
+         (2, 1, 4, 1, 2, 1),           //90 : [z]
+         (4, 1, 2, 1, 2, 1),           //91 : [{]
+         (1, 1, 1, 1, 4, 3),           //92 : [|]
+         (1, 1, 1, 3, 4, 1),           //93 : [}]
+         (1, 3, 1, 1, 4, 1),           //94 : [~]
+         (1, 1, 4, 1, 1, 3),           //95 : [DEL]
+         (1, 1, 4, 3, 1, 1),           //96 : [FNC3]
+         (4, 1, 1, 1, 1, 3),           //97 : [FNC2]
+         (4, 1, 1, 3, 1, 1),           //98 : [SHIFT]
+         (1, 1, 3, 1, 4, 1),           //99 : [Cswap]
+         (1, 1, 4, 1, 3, 1),           //100 : [Bswap]
+         (3, 1, 1, 1, 4, 1),           //101 : [Aswap]
+         (4, 1, 1, 1, 3, 1),           //102 : [FNC1]
+         (2, 1, 1, 4, 1, 2),           //103 : [Astart]
+         (2, 1, 1, 2, 1, 4),           //104 : [Bstart]
+         (2, 1, 1, 2, 3, 2),           //105 : [Cstart]
+         (2, 3, 3, 1, 1, 1),           //106 : [STOP]
+         (2, 1, 0, 0, 0, 0)            //107 : [END BAR]
+       );
+var
+  s, Aguid, Bguid, Cguid, needle, SminiC: String;
+  crypt, cryptb: AnsiString;
+  l, i, j, p, IminiC, made, madeA, madeB, check: Integer;
+  set128: TCode128;
+  modul: Double;
+  c: T128Parity;
 begin
+  s := ABarCode;
+  if (s = '') then
+    Exit;
 
+  if (BarHeight = 0) then
+    BarHeight := cDefBarHeight;
+
+  if (BarWidth = 0) then
+    BarWidth := cDefBarWidth;
+
+  if (BarWidth < 1) then
+    BarWidth := BarWidth * 100;
+
+  Aguid := '';                                                                      // Creation of ABC choice guides
+  Bguid := '';
+  Cguid := '';
+  l := Length(s);
+  for i := 1 to l do
+  begin
+    needle := copy(s, i, 1);
+    Aguid := Aguid + ifthen(pos(needle, fASet) > 0, 'O', 'N');
+    Bguid := Bguid + ifthen(pos(needle, fBSet) > 0, 'O', 'N');
+    Cguid := Cguid + ifthen(pos(needle, fCSet) > 0, 'O', 'N');
+  end;
+
+  SminiC := 'OOOO';
+  IminiC := 4;
+  crypt := '';
+  while (s <> '') do                                                           // MAIN CODING LOOP
+  begin
+    p := pos(SminiC, Cguid);                                                    // forcing of set C, if possible
+    if (p > 0) then
+    begin
+      Aguid[p] := 'N';
+      Bguid[p] := 'N';
+    end;
+
+     if (copy(Cguid, 1, IminiC) = SminiC) then                                  // set C
+     begin
+       crypt := crypt + chr( IfThen(crypt <> '', C128Swap[code128C],  C128Start[code128C]) );  // start Cstart, otherwise Cswap
+       made := pos('N', Cguid);                                                 // extended set C
+       if (made = 0) then
+         made := Length(Cguid)
+       else
+         Dec(made);
+
+       if ((made mod 2) = 1) then
+         Dec(made);                                                             // only an even number
+
+       i := 1;
+       while (i <= made) do
+       begin
+         crypt := crypt + chr(StrToInt(Copy(s, i, 2)));                         // 2 by 2 conversion
+         Inc(i, 2);
+       end;
+
+       set128 := code128C;
+     end
+     else
+     begin
+       madeA := pos('N', Aguid);                                                // set A range
+       if (madeA = 0) then
+         madeA := Length(Aguid)
+       else
+         Dec(madeA);
+
+       madeB := pos('N', Bguid);                                                // set B range
+       if (madeB = 0 ) then
+         madeB := Length(Bguid)
+       else
+         Dec(madeB);
+
+       if (madeA < madeB) then                                                  // treated area and Set in progress
+       begin
+         made := madeB;
+         set128 := code128B;
+       end
+       else
+       begin
+         made := madeA;
+         set128 := code128A;
+       end;
+
+       crypt := crypt + chr(IfThen(crypt <> '', C128Swap[set128], C128Start[set128])); // start, otherwise swap
+       cryptb := Copy(s, 1, made);
+       for j := 1 to Length(fSetFrom[set128]) do
+          cryptb := StringReplace(cryptb, fSetFrom[set128][j], fSetTo[set128][j], [rfReplaceAll]); // conversion according to Set
+       crypt := crypt + cryptb;
+     end;
+
+     s := Copy(s, made+1, l);                                                   // shorten legend and guides of the treated area
+     Aguid := Copy(Aguid, made+1, Length(Aguid));
+     Bguid := Copy(Bguid, made+1, Length(Bguid));
+     Cguid := Copy(Cguid, made+1, Length(Cguid));
+  end;                                                                          // END OF MAIN LOOP
+
+  check := ord(crypt[1]);                                                       // calculation of the checksum
+  l := Length(crypt);
+  for i := 1 to l do
+    check := check + (ord(crypt[i]) * (i-1));
+  check := check mod 103;
+
+  crypt := crypt + chr(check) + chr(106) + chr(107);                            // Complete encrypted channel
+  l := Length(crypt);
+  i := (l * 11) - 8;                                                            // calculation of the module width
+  modul := BarWidth/i;
+
+  for i := 1 to l do                                                            // PRINTING LOOP
+  begin
+    c := C128Table[ord(crypt[i])];
+    j := 0;
+    while (j <= 5) do
+    begin
+      if (c[j] > 0) then
+      begin
+        fpFPDF.Rect(vX, vY, c[j] * modul, BarHeight, 'F');
+        Inc(j);
+        vX := vX + (c[j-1]+c[j]) * modul;
+      end;
+
+      Inc(j);
+    end;
+  end;
 end;
 
 
@@ -523,6 +828,19 @@ begin
   script := TFPDFScriptCode39.Create(Self);
   try
     script.Code39(ABarCode, vX, vY, BarHeight, BarWidth);
+  finally
+    script.Free;
+  end;
+end;
+
+procedure TFPDFExt.Code128(const ABarCode: string; vX: double; vY: double;
+  BarHeight: double; BarWidth: double);
+var
+  script: TFPDFScriptCode128;
+begin
+  script := TFPDFScriptCode128.Create(Self);
+  try
+    script.Code128(ABarCode, vX, vY, BarHeight, BarWidth);
   finally
     script.Free;
   end;
