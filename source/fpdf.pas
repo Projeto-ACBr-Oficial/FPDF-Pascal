@@ -290,8 +290,8 @@ type
 
     function _getpagesize(APageSize: TFPDFPageSize): TFPDFPageSize; overload;
     function _getpagesize(APageFormat: TFPDFPageFormat): TFPDFPageSize; overload;
-    procedure _beginpage(AOrientation: TFPDFOrientation; APageSize: TFPDFPageSize; ARotation: TFPDFRotation);
-    procedure _endpage;
+    procedure _beginpage(AOrientation: TFPDFOrientation; APageSize: TFPDFPageSize; ARotation: TFPDFRotation); virtual;
+    procedure _endpage; virtual;
 
     function _isascii(const AString: String): Boolean;
     function _EncodeText(const AString: String): String;
@@ -433,13 +433,13 @@ function SwapBytes(Value: Word): Word; overload;
 function Split(const AString: string; const ADelimiter: Char = ' '): TStringArray;
 function CountStr(const AString, SubStr : String ) : Integer ;
 
+var
+  FPDFFormatSetings: TFormatSettings;
+
 implementation
 
 uses
   StrUtils, Math;
-
-var
-  FPDFFormatSetings: TFormatSettings;
 
 { TFPDFFont }
 

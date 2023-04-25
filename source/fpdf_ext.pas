@@ -175,10 +175,13 @@ type
 
     procedure GetImageFromURL(const aURL: string; const aResponse: TStream);
   protected
+    angle: Double;
 
+    procedure _endpage; override;
   public
     procedure InternalCreate; override;
 
+    procedure Rotate(NewAngle: Double = 0; vX: Double = -1; vY: Double = -1);
     procedure Image(const vFileOrURL: string; vX: double = -9999;
       vY: double = -9999; vWidth: double = 0; vHeight: double = 0;
       const vLink: string = ''); overload; override;
@@ -835,10 +838,40 @@ end;
 
 procedure TFPDFExt.InternalCreate;
 begin
+  inherited;
   fProxyHost := '';
   fProxyPass := '';
   fProxyPort := '';
   fProxyUser := '';
+  angle := 0;
+end;
+
+{ http://www.fpdf.org/en/script/script2.php - Olivier }
+procedure TFPDFExt.Rotate(NewAngle: Double; vX: Double; vY: Double);
+var
+  c, s: Extended;
+  cx, cy: Double;
+begin
+  if (vX=-1) then
+    vX := Self.x;
+
+  if (vY=-1) then
+    vY := Self.y;
+
+  if (Self.angle <> 0) then
+      _out('Q');
+
+  Self.angle := NewAngle;
+
+  if (NewAngle <> 0) then
+  begin
+    NewAngle := NewAngle * Pi/180;
+    c := cos(NewAngle);
+    s := sin(NewAngle);
+    cx := vX * Self.k;
+    cy := (Self.h-vY) * Self.k;
+    _out(Format('q %.5f %.5f %.5f %.5f %.2f %.2f cm 1 0 0 1 %.2f %.2f cm', [c, s, -s, c, cx, cy, -cx, -cy], FPDFFormatSetings));
+  end;
 end;
 
 procedure TFPDFExt.Image(const vFileOrURL: string; vX: double; vY: double;
@@ -976,8 +1009,7 @@ begin
 end;
 
 {$Else}
-procedure TFPDFExt.GetImageFromURL(const aURL: string; const aResponse: TStream
-  );
+procedure TFPDFExt.GetImageFromURL(const aURL: string; const aResponse: TStream);
 var
   vHTTP: TFPHTTPClient;
 begin
@@ -995,6 +1027,17 @@ begin
   finally
     vHTTP.Free;
   end;
+end;
+
+procedure TFPDFExt._endpage;
+begin
+  if (Self.angle <> 0) then
+  begin
+    Self.angle := 0;
+    _out('Q');
+  end;
+
+  inherited _endpage;
 end;
 
 {$EndIf}
