@@ -136,6 +136,16 @@ type
       BarHeight: double = 0; BarWidth: double = 0);
   end;
 
+  { TFPDFScriptCodei25 }
+  { http://www.fpdf.org/en/script/script67.php - Matthias Lau }
+
+  TFPDFScriptCodeI25 = class(TFPDFScripts)
+  private
+  public
+    procedure CodeI25(const ABarCode: string; vX: double; vY: double;
+      BarHeight: double = 0; BarWidth: double = 0);
+  end;
+
   { TFPDFScriptCode128 }
   { http://www.fpdf.org/en/script/script88.php - Roland Gautier }
 
@@ -175,6 +185,8 @@ type
     procedure CodeEAN13(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
     procedure CodeEAN8(const ABarCode: string; vX: double; vY: double;
+      BarHeight: double = 0; BarWidth: double = 0);
+    procedure CodeI25(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
     procedure Code39(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
@@ -428,6 +440,81 @@ begin
     end;
 
     vX := vX + gap;
+  end;
+end;
+
+{ TFPDFScriptCodeI25 }
+
+procedure TFPDFScriptCodeI25.CodeI25(const ABarCode: string; vX: double;
+  vY: double; BarHeight: double; BarWidth: double);
+const
+  Chars: String = '0123456789AZ';
+  Bars: array[0..11] of String =
+    (  'nnwwn', 'wnnnw', 'nwnnw', 'wwnnn', 'nnwnw', 'wnwnn', 'nwwnn',
+       'nnnww', 'wnnwn', 'nwnwn', 'nn', 'wn');
+var
+  wide, narrow, lineWidth: Double;
+  s, seq: String;
+  l, i, j, pcb, pcs: Integer;
+  charBar, charSpace: Char;
+begin
+  s := LowerCase(trim(ABarCode));
+  if (s = '') then
+    Exit;
+
+  if (BarHeight = 0) then
+    BarHeight := cDefBarHeight;
+
+  if (BarWidth = 0) then
+    BarWidth := cDefBarWidth;
+
+  wide := BarWidth;
+  narrow := wide / 3;
+
+  // add leading zero if code-length is odd
+  l := Length(s);
+  if ((l mod 2) <> 0) then
+    s := '0' + s;
+
+  // add start and stop codes
+  s := 'AA' + s + 'ZA';
+  l := Length(s);
+
+  i := 1;
+  while (i <= l) do
+  begin
+    // choose next pair of digits
+    charBar := s[i];
+    charSpace := s[i+1];
+
+    // check whether it is a valid digit
+    pcb := pos(charBar, Chars);
+    if (pcb = 0) then
+      fpFPDF.Error('CodeI25, Invalid character: '+charBar);
+
+    pcs := pos(charSpace, Chars);
+    if (pcs = 0) then
+      fpFPDF.Error('CodeI25, Invalid character: '+charSpace);
+
+    // create a wide/narrow-sequence (first digit=bars, second digit=spaces)
+    seq := '';
+    for j := 1 to Length(Bars[pcb]) do
+      seq := seq + Bars[pcb][j] + Bars[pcs][j];
+
+    l := Length(seq);
+    for j := 1 to l do
+    begin
+      // set lineWidth depending on value
+      lineWidth := IfThen(seq[j] = 'n', narrow, wide);
+
+      // draw every second value, because the second digit of the pair is represented by the spaces
+      if ((j mod 2) = 0) then
+        fpFPDF.Rect(vX, vY, lineWidth, BarHeight, 'F');
+
+      vX :=  vX + lineWidth;
+    end;
+
+    Inc(i, 2);
   end;
 end;
 
@@ -815,6 +902,19 @@ begin
   script := TFPDFScriptCodeEAN.Create(Self);
   try
     script.CodeEAN8(ABarCode, vX, vY, BarHeight, BarWidth);
+  finally
+    script.Free;
+  end;
+end;
+
+procedure TFPDFExt.CodeI25(const ABarCode: string; vX: double; vY: double;
+  BarHeight: double; BarWidth: double);
+var
+  script: TFPDFScriptCodeI25;
+begin
+  script := TFPDFScriptCodeI25.Create(Self);
+  try
+    script.CodeI25(ABarCode, vX, vY, BarHeight, BarWidth);
   finally
     script.Free;
   end;
