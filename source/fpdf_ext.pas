@@ -102,7 +102,7 @@ type
   protected
     fpFPDF: TFPDFExt;
   public
-    constructor Create(AFPDF: TFPDFExt);
+    constructor Create(AFPDF: TFPDFExt); virtual;
   end;
 
 
@@ -134,6 +134,17 @@ type
       BarHeight: double = 0; BarWidth: double = 0);
   end;
 
+  { TFPDFScriptCode128 }
+
+  TCode128 = (code128A, code128B, code128C);
+  TFPDFScriptCode128 = class(TFPDFScripts)
+  private
+  public
+    constructor Create(AFPDF: TFPDFExt); override;
+    procedure Code128(const ABarCode: string; vX: double; vY: double;
+      BarHeight: double = 0; BarWidth: double = 0);
+  end;
+
   { TFPDFExt }
 
   TFPDFExt = class(TFPDF)
@@ -148,7 +159,6 @@ type
 
   public
     procedure InternalCreate; override;
-    destructor Destroy; override;
 
     procedure Image(const vFileOrURL: string; vX: double = -9999;
       vY: double = -9999; vWidth: double = 0; vHeight: double = 0;
@@ -263,6 +273,9 @@ begin
 end;
 
 function TFPDFScriptCodeEAN.CalcBinCode(const ABarCode: string): String;
+type
+ TParity = array[0..5] of Byte;
+ 
 const
   codes: array[0..2] of array[0..9] of string =
     (('0001101', '0011001', '0010011', '0111101', '0100011', '0110001',
@@ -271,7 +284,7 @@ const
       '0000101', '0010001', '0001001', '0010111'),
      ('1110010', '1100110', '1101100', '1000010', '1011100', '1001110',
       '1010000', '1000100', '1001000', '1110100'));
-  parities: array[0..9] of array[0..5] of Byte =
+  parities: array[0..9] of TParity =
     ((0, 0, 0, 0, 0, 0),
      (0, 0, 1, 0, 1, 1),
      (0, 0, 1, 1, 0, 1),
@@ -285,7 +298,7 @@ const
 var
   BinCode: string;
   v, i, l, p, m: integer;
-  pa: array[0..5] of Byte;
+  pa: TParity;
 
 begin
   l := Length(ABarCode);
@@ -342,9 +355,11 @@ end;
 
 procedure TFPDFScriptCode39.Code39(const ABarCode: string; vX: double;
   vY: double; BarHeight: double; BarWidth: double);
+type
+  TBarSeq = array[0..8] of Byte;
 const
   Chars: String = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. *$/+%';
-  Bars: array[0..43] of array[0..8] of Byte =
+  Bars: array[0..43] of TBarSeq =
     ( (0,0,0,1,1,0,1,0,0), (1,0,0,1,0,0,0,0,1), (0,0,1,1,0,0,0,0,1), (1,0,1,1,0,0,0,0,0),
       (0,0,0,1,1,0,0,0,1), (1,0,0,1,1,0,0,0,0), (0,0,1,1,1,0,0,0,0), (0,0,0,1,0,0,1,0,1),
       (1,0,0,1,0,0,1,0,0), (0,0,1,1,0,0,1,0,0), (1,0,0,0,0,1,0,0,1), (0,0,1,0,0,1,0,0,1),
@@ -361,7 +376,7 @@ var
   s: String;
   l, i, j, p: Integer;
   c: Char;
-  seq: array[0..8] of Byte;
+  seq: TBarSeq;
 begin
   if (BarHeight = 0) then
     BarHeight := cDefBarHeight;
@@ -405,6 +420,24 @@ begin
   end;
 end;
 
+{ TFPDFScriptCode128 }
+
+constructor TFPDFScriptCode128.Create(AFPDF: TFPDFExt);
+begin
+  inherited Create(AFPDF);
+
+end;
+
+procedure TFPDFScriptCode128.Code128(const ABarCode: string; vX: double;
+  vY: double; BarHeight: double; BarWidth: double);
+const
+  C128Start: array[TCode128] of Byte = (103,104,105);  // Set selection characters at the start of C128
+  C128Swap: array[TCode128] of Byte = (101,100,99);    // Set change characters
+
+begin
+
+end;
+
 
 { TFPDFExt }
 
@@ -414,11 +447,6 @@ begin
   fProxyPass := '';
   fProxyPort := '';
   fProxyUser := '';
-end;
-
-destructor TFPDFExt.Destroy;
-begin
-  inherited Destroy;
 end;
 
 procedure TFPDFExt.Image(const vFileOrURL: string; vX: double; vY: double;

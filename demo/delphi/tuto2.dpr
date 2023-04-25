@@ -2,13 +2,13 @@ program tuto2;
 
 uses
   Classes, SysUtils,
-  fpdf;
+  fpdf_ext;
 
 type
 
   { TMyFPDF }
 
-  TMyFPDF = class(TFPDF)
+  TMyFPDF = class(TFPDFExt)
   public
     procedure Header; override;
     procedure Footer; override;
@@ -50,6 +50,8 @@ begin
     pdf.SetAliasNbPages();
     pdf.AddPage();
     pdf.SetFont('Times','',12);
+    pdf.CodeEAN13('123456789012', 60, 40);
+    pdf.Code39('ACBR RULES 1234567890', 60, 70);
     for i := 1 to 40 do
       pdf.Cell(0,10,'Printing line number '+IntToStr(i), '0', 1);
 
