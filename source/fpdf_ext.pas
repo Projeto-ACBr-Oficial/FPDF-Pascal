@@ -43,8 +43,9 @@
 
 unit fpdf_ext;
 
-// Define USESYNAPSE if you want to force use of synapse
-//{$DEFINE USESYNAPSE}
+// Define USE_SYNAPSE if you want to force use of Unit synapse.pas
+// http://www.ararat.cz/synapse
+//{$DEFINE USE_SYNAPSE}
 
 // If you don't want the AnsiString vs String warnings to bother you
 //{$DEFINE REMOVE_CAST_WARN}
@@ -54,8 +55,6 @@ unit fpdf_ext;
 //{$DEFINE DelphiZXingQRCode}
 
 {$IfNDef FPC}
-  {$Define USESYNAPSE}
-
   {$IFDEF REMOVE_CAST_WARN}
     {$WARN IMPLICIT_STRING_CAST OFF}
     {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
@@ -65,6 +64,11 @@ unit fpdf_ext;
 {$IfDef FPC}
   {$Mode objfpc}{$H+}
   {$Define USE_UTF8}
+  {$Define HAS_HTTP}
+{$EndIf}
+
+{$IfDef USE_SYNAPSE}
+  {$Define HAS_HTTP}
 {$EndIf}
 
 {$IfDef POSIX}
@@ -83,14 +87,16 @@ interface
 
 uses
   Classes, SysUtils,
-  fpdf,
+  fpdf
   {$IfDef DelphiZXingQRCode}
-  DelphiZXingQRCode,
+   ,DelphiZXingQRCode
   {$EndIf}
-  {$IFDEF USESYNAPSE}
-  httpsend, ssl_openssl
-  {$ELSE}
-   fphttpclient, opensslsockets
+  {$IFDEF HAS_HTTP}
+   {$IFDEF USE_SYNAPSE}
+    ,httpsend, ssl_openssl
+   {$ELSE}
+    ,fphttpclient, opensslsockets
+   {$ENDIF}
   {$ENDIF};
 
 {$IfDef NEXTGEN}
@@ -196,7 +202,9 @@ type
     fProxyPort: string;
     fProxyUser: string;
 
-    procedure GetImageFromURL(const aURL: string; const aResponse: TStream);
+    {$IfDef HAS_HTTP}
+     procedure GetImageFromURL(const aURL: string; const aResponse: TStream);
+    {$EndIf}
   protected
     angle: Double;
     layers: array of TFPDFLayer;
@@ -225,9 +233,11 @@ type
     procedure EndLayer;
     procedure OpenLayerPane;
 
+    {$IfDef HAS_HTTP}
     procedure Image(const vFileOrURL: string; vX: double = -9999;
       vY: double = -9999; vWidth: double = 0; vHeight: double = 0;
       const vLink: string = ''); overload; override;
+    {$EndIf}
 
     procedure CodeEAN13(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
@@ -1058,6 +1068,7 @@ begin
   Self.open_layer_pane := true;
 end;
 
+{$IfDef HAS_HTTP}
 procedure TFPDFExt.Image(const vFileOrURL: string; vX: double; vY: double;
   vWidth: double; vHeight: double; const vLink: string);
 var
@@ -1097,6 +1108,7 @@ begin
   else
     inherited Image(vFileOrURL, vX, vY, vWidth, vHeight, vLink);
 end;
+{$EndIf}
 
 procedure TFPDFExt.CodeEAN13(const ABarCode: string; vX: double; vY: double;
   BarHeight: double; BarWidth: double);
@@ -1228,6 +1240,7 @@ begin
   end;
 end;
 
+{$IfDef HAS_HTTP}
 {$IfDef USESYNAPSE}
 procedure TFPDFExt.GetImageFromURL(const aURL: string; const aResponse: TStream);
 var
@@ -1256,7 +1269,6 @@ begin
     vHTTP.Free;
   end;
 end;
-
 {$Else}
 procedure TFPDFExt.GetImageFromURL(const aURL: string; const aResponse: TStream);
 var
@@ -1277,6 +1289,8 @@ begin
     vHTTP.Free;
   end;
 end;
+{$EndIf}
+{$EndIf}
 
 procedure TFPDFExt._endpage;
 begin
@@ -1355,8 +1369,6 @@ begin
 
   inherited _enddoc;
 end;
-
-{$EndIf}
 
 end.
 
