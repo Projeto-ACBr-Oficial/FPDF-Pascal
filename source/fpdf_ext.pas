@@ -42,6 +42,10 @@ unit fpdf_ext;
 // If you don't want the AnsiString vs String warnings to bother you
 {.$DEFINE REMOVE_CAST_WARN}
 
+// If you have DelphiZXingQRCode Unit on you LibPath
+// https://github.com/foxitsoftware/DelphiZXingQRCode
+{.$DEFINE DelphiZXingQRCode}
+
 {$IfNDef FPC}
   {$Define USESYNAPSE}
 
@@ -73,6 +77,9 @@ interface
 uses
   Classes, SysUtils,
   fpdf,
+  {$IfDef DelphiZXingQRCode}
+  DelphiZXingQRCode,
+  {$EndIf}
   {$IFDEF USESYNAPSE}
   httpsend, ssl_openssl
   {$ELSE}
@@ -170,6 +177,9 @@ type
     n: Integer;
   end;
 
+  TByteArray = array of Byte;
+  TFPDF2DMatrix = array of TByteArray;
+
   { TFPDFExt }
 
   TFPDFExt = class(TFPDF)
@@ -222,6 +232,13 @@ type
       BarHeight: double = 0; BarWidth: double = 0);
     procedure Code128(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
+
+    {$IfDef DelphiZXingQRCode}
+    procedure QRCode(vX: double; vY: double; const QRCodeData: String;
+      DotSize: Double = 0; AEncoding: TQRCodeEncoding = qrAuto);
+    {$EndIf}
+    procedure Draw2DMatrix(AMatrix: TFPDF2DMatrix; vX: double; vY: double;
+      DotSize: Double = 0);
 
     property ProxyHost: string read fProxyHost write fProxyHost;
     property ProxyPort: string read fProxyPort write fProxyPort;
@@ -1136,6 +1153,71 @@ begin
     script.Code128(ABarCode, vX, vY, BarHeight, BarWidth);
   finally
     script.Free;
+  end;
+end;
+
+{$IfDef DelphiZXingQRCode}
+procedure TFPDFExt.QRCode(vX: double; vY: double; const QRCodeData: String;
+  DotSize: Double; AEncoding: TQRCodeEncoding);
+var
+  qr: TDelphiZXingQRCode;
+  PDF2DMatrix: TFPDF2DMatrix;
+  r, c: Integer;
+begin
+  qr := TDelphiZXingQRCode.Create;
+  try
+    qr.Encoding  := AEncoding;
+    qr.QuietZone := 1;
+    qr.Data := widestring(QRCodeData);
+
+    SetLength(PDF2DMatrix, qr.Rows);
+    for r := 0 to qr.Rows-1 do
+    begin
+      SetLength(PDF2DMatrix[r], qr.Columns);
+      for c := 0 to qr.Columns-1 do
+      begin
+        if (qr.IsBlack[r, c]) then
+          PDF2DMatrix[r][c] := 1
+        else
+          PDF2DMatrix[r][c] := 0;
+      end;
+    end;
+  finally
+    qr.Free;
+  end;
+
+  Draw2DMatrix(PDF2DMatrix, vX, vY, DotSize);
+end;
+{$EndIf}
+
+procedure TFPDFExt.Draw2DMatrix(AMatrix: TFPDF2DMatrix; vX: double; vY: double;
+  DotSize: Double);
+var
+  rows, cols, r, c: Integer;
+  wX: Double;
+begin
+  rows := Length(AMatrix);
+  if (rows < 1) then
+    Exit;
+
+  cols := Length(AMatrix[0]);
+  if (cols < 1) then
+    Exit;
+
+  if DotSize = 0 then
+    DotSize := cDefBarWidth;
+
+  wX := vX;
+  for r := 0 to rows-1 do
+  begin
+    vX := wX;
+    for c := 0 to cols-1 do
+    begin
+      if (AMatrix[r][c] <> 0) then
+        Rect(vX, vY, DotSize, DotSize, 'F');
+      vX := vX + DotSize;
+    end;
+    vY := vY + DotSize;
   end;
 end;
 
