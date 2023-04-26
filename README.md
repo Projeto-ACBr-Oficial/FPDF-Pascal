@@ -17,7 +17,7 @@ FPDF has other benefits: high level functions. Here is a list of its main featur
 - ~~TrueType, Type1 and encoding support~~
 - Page compression
 
-    (Note: ~~Strike~~ = not implemented in Pascal trasnslation)
+    (Note: ~~Strike~~ = not implemented in Pascal translation)
 
 # Dependencies
 In order to maintain compatibility with a large number of Pascal IDEs, Units have few or none dependencies.
@@ -58,12 +58,13 @@ So, always prefer to use the **TFPDFExt** class of Unit **fpf_ext.pas**
 # Dependencies of Third Party Units
 Note that at the beginning of Unit **fpf_ext.pas**, you can turn on/off, the support for various external Units, using DEFINE directives
 
-- **DEFINE USE_SYNAPSE:** Allows you to extend the "Image" method, allowing you to inform an Image by URL
+- **DEFINE USE_SYNAPSE:** Extend the "Image" method, allowing you to inform an Image by URL
 
-- **DEFINE DelphiZXingQRCode:** Allows the generation of QRCodes
+- **DEFINE DelphiZXingQRCode:** Allows the generation of **QRCodes**
 
 # Scripts incorporados em **TFPDFExt**
-| Method | Script URL | Author |
+| **Method** | **Script URL** | **Author** |
+| --- | --- | --- |
 | TFPDFScriptCodeEAN | http://www.fpdf.org/en/script/script5.php | Olivier |
 |TFPDFScriptCode39 | http://www.fpdf.org/en/script/script46.php | The-eh |
 | TFPDFScriptCodeI25 | http://www.fpdf.org/en/script/script67.php | Matthias Lau |
