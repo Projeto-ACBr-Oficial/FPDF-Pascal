@@ -28,23 +28,30 @@
  this Software without prior written authorization from <Projeto ACBr>.
 
  Based on:
- - The FPDF Scripts
-   http://www.fpdf.org/en/script/index.php
- - Free JPDF Pascal from Jean Patrick e Gilson Nunes
+ - The FPDF Scripts    - http://www.fpdf.org/en/script/index.php
+   TFPDFScriptCodeEAN  - http://www.fpdf.org/en/script/script5.php  - Olivier
+   TFPDFScriptCode39   - http://www.fpdf.org/en/script/script46.php - The-eh
+   TFPDFScriptCodeI25  - http://www.fpdf.org/en/script/script67.php - Matthias Lau
+   TFPDFScriptCode128  - http://www.fpdf.org/en/script/script88.php - Roland Gautier
+   TFPDFExt.Rotate     - http://www.fpdf.org/en/script/script2.php  - Olivier
+   TFPDFExt.RoundedRect- http://www.fpdf.org/en/script/script35.php - Christophe Prugnaud
+   TFPDFExt.AddLayer   - http://www.fpdf.org/en/script/script97.php - Oliver
+
+- Free JPDF Pascal from Jean Patrick e Gilson Nunes
    https://github.com/jepafi/Free-JPDF-Pascal
 }
 
 unit fpdf_ext;
 
 // Define USESYNAPSE if you want to force use of synapse
-{.$DEFINE USESYNAPSE}
+//{$DEFINE USESYNAPSE}
 
 // If you don't want the AnsiString vs String warnings to bother you
-{.$DEFINE REMOVE_CAST_WARN}
+//{$DEFINE REMOVE_CAST_WARN}
 
 // If you have DelphiZXingQRCode Unit on you LibPath
 // https://github.com/foxitsoftware/DelphiZXingQRCode
-{.$DEFINE DelphiZXingQRCode}
+//{$DEFINE DelphiZXingQRCode}
 
 {$IfNDef FPC}
   {$Define USESYNAPSE}
@@ -143,7 +150,7 @@ type
       BarHeight: double = 0; BarWidth: double = 0);
   end;
 
-  { TFPDFScriptCodei25 }
+  { TFPDFScriptCodeI25 }
   { http://www.fpdf.org/en/script/script67.php - Matthias Lau }
 
   TFPDFScriptCodeI25 = class(TFPDFScripts)
