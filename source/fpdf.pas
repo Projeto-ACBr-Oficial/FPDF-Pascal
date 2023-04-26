@@ -216,7 +216,6 @@ type
 
   TFPDF = class
   private
-    function ConvertTextToAnsi(const AText: String): String;
     function FloatToStr(Value: Double): String;
     procedure DefineDefaultPageSizes;
     function FindUsedFontIndex(const AFontName: String): Integer;
@@ -283,6 +282,7 @@ type
     UseUTF8: boolean;                     // Set True if your compiler uses UTF8 as default (no convertions needed)
     TimeZone: String;                     // TimeZone to be used on Date values
 
+    function ConvertTextToAnsi(const AText: String): String;
     procedure PopulateCoreFonts; virtual;
     function FindUsedImage(const ImageName:String): TFPDFImageInfo;
     procedure Image(img: TFPDFImageInfo; vX: Double = -9999; vY: Double = -9999;
@@ -318,13 +318,13 @@ type
     procedure _putimages;
     procedure _putimage(var img: TFPDFImageInfo);
     procedure _putxobjectdict;
-    procedure _putresourcedict();
-    procedure _putresources;
+    procedure _putresourcedict(); virtual;
+    procedure _putresources; virtual;
     procedure _putinfo;
-    procedure _putcatalog;
+    procedure _putcatalog; virtual;
     procedure _putheader;
     procedure _puttrailer;
-    procedure _enddoc;
+    procedure _enddoc; virtual;
 
     function GzCompress(const StrIn: AnsiString; CompLevel: TCompressionLevel = clMax): AnsiString;
     function GzDecompress(const StrIn: AnsiString): AnsiString;

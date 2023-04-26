@@ -164,6 +164,12 @@ type
       BarHeight: double = 0; BarWidth: double = 0);
   end;
 
+  TFPDFLayer =  record
+    Name: String;
+    Visible: Boolean;
+    n: Integer;
+  end;
+
   { TFPDFExt }
 
   TFPDFExt = class(TFPDF)
@@ -176,19 +182,36 @@ type
     procedure GetImageFromURL(const aURL: string; const aResponse: TStream);
   protected
     angle: Double;
+    layers: array of TFPDFLayer;
+    current_layer: Integer;
+    open_layer_pane: Boolean;
 
     procedure _endpage; override;
+    procedure _putresourcedict; override;
+    procedure _putresources; override;
+    procedure _putlayers;
+    procedure _putcatalog; override;
+    procedure _enddoc; override;
+
     procedure _Arc(vX1, vY1, vX2, vY2, vX3, vY3: Double);
   public
     procedure InternalCreate; override;
 
     procedure Rotate(NewAngle: Double = 0; vX: Double = -1; vY: Double = -1);
+
     procedure RoundedRect(vX, vY, vWidth, vHeight: Double;
       vRadius: Double = 5; vCorners: String = '1234'; vStyle: String = '');
+
+    function AddLayer(const LayerName: String; IsVisible: Boolean = true): Integer;
+    procedure BeginLayer(LayerId: Integer); overload;
+    procedure BeginLayer(const LayerName: String); overload;
+    procedure EndLayer;
+    procedure OpenLayerPane;
 
     procedure Image(const vFileOrURL: string; vX: double = -9999;
       vY: double = -9999; vWidth: double = 0; vHeight: double = 0;
       const vLink: string = ''); overload; override;
+
     procedure CodeEAN13(const ABarCode: string; vX: double; vY: double;
       BarHeight: double = 0; BarWidth: double = 0);
     procedure CodeEAN8(const ABarCode: string; vX: double; vY: double;
@@ -847,7 +870,12 @@ begin
   fProxyPass := '';
   fProxyPort := '';
   fProxyUser := '';
+
   angle := 0;
+
+  SetLength(layers,0);
+  current_layer := -1;
+  open_layer_pane := False;
 end;
 
 { http://www.fpdf.org/en/script/script2.php - Olivier }
@@ -944,6 +972,66 @@ begin
   _out(Format('%.2f %.2f %.2f %.2f %.2f %.2f c ',
           [vX1*Self.k, (vh-vY1)*Self.k, vX2*Self.k, (vh-vY2)*Self.k, vX3*Self.k, (vh-vY3)*Self.k],
           FPDFFormatSetings));
+end;
+
+
+{ http://www.fpdf.org/en/script/script97.php - Oliver }
+function TFPDFExt.AddLayer(const LayerName: String; IsVisible: Boolean = true): Integer;
+var
+  s: String;
+  id: Integer;
+begin
+  s := ConvertTextToAnsi(LayerName);
+  id := Length(layers);
+  SetLength(layers, id+1);
+  layers[id].Name := LayerName;
+  layers[id].Visible := IsVisible;
+  layers[id].n := -1;
+  Result := id;
+end;
+
+procedure TFPDFExt.BeginLayer(LayerId: Integer);
+begin
+  if (LayerId >= Length(Self.layers)) then
+    Error('Invalid Layer Id: '+IntToStr(LayerId));
+
+  EndLayer();
+  _out('/OC /OC'+IntToStr(LayerId)+' BDC');
+  Self.current_layer := LayerId;
+end;
+
+procedure TFPDFExt.BeginLayer(const LayerName: String);
+var
+  i, Id: Integer;
+begin
+  Id := -1;
+  for i := 0 to Length(Self.layers)-1 do
+  begin
+    if (LayerName = Self.layers[i].Name) then
+    begin
+      Id := i;
+      Break;
+    end;
+  end;
+
+  if (Id < 0) then
+    Error('Layer Name not found: '+LayerName);
+
+  BeginLayer(Id);
+end;
+
+procedure TFPDFExt.EndLayer();
+begin
+  if (Self.current_layer >= 0) then
+  begin
+    _out('EMC');
+    Self.current_layer := -1;
+  end;
+end;
+
+procedure TFPDFExt.OpenLayerPane();
+begin
+  Self.open_layer_pane := true;
 end;
 
 procedure TFPDFExt.Image(const vFileOrURL: string; vX: double; vY: double;
@@ -1109,7 +1197,74 @@ begin
     _out('Q');
   end;
 
+  EndLayer();
+
   inherited _endpage;
+end;
+
+procedure TFPDFExt._putresourcedict;
+var
+  i, l: Integer;
+begin
+  inherited _putresourcedict;
+
+  l := Length(Self.layers);
+  if (l > 0) then
+  begin
+    _put('/Properties <<');
+    for i := 0 to l-1 do
+      _put('/OC'+IntToStr(i)+' '+IntToStr(Self.layers[i].n)+' 0 R');
+    _put('>>');
+  end;
+end;
+
+procedure TFPDFExt._putresources;
+begin
+  _putlayers;
+  inherited _putresources;
+end;
+
+procedure TFPDFExt._putlayers;
+var
+  i, l: Integer;
+begin
+  l := Length(Self.layers)-1;
+  for i := 0 to l do
+  begin
+    _newobj();
+    Self.layers[i].n := Self.n;
+    _put('<</Type /OCG /Name '+_textstring(Self.layers[i].Name)+'>>');
+    _put('endobj');
+  end;
+end;
+
+procedure TFPDFExt._putcatalog;
+var
+  l_off, s: String;
+  l, i: Integer;
+begin
+  inherited _putcatalog;
+  s := '';
+  l_off := '';
+  l := Length(Self.layers)-1;
+  for i := 0 to l do
+  begin
+    s := s + IntToStr(Self.layers[i].n)+' 0 R ';
+    if (not Self.layers[i].Visible) then
+      l_off := l_off + IntToStr(Self.layers[i].n)+' 0 R ';
+  end;
+
+  _put('/OCProperties <</OCGs ['+s+'] /D <</OFF ['+l_off+'] /Order ['+s+']>>>>');
+  if (Self.open_layer_pane) then
+    _put('/PageMode /UseOC');
+end;
+
+procedure TFPDFExt._enddoc;
+begin
+  if (Self.PDFVersion < 1.5) then
+    Self.PDFVersion := 1.5;
+
+  inherited _enddoc;
 end;
 
 {$EndIf}
