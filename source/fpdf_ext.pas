@@ -571,7 +571,7 @@ begin
       lineWidth := IfThen(seq[j] = 'n', narrow, wide);
 
       // draw every second value, because the second digit of the pair is represented by the spaces
-      if ((j mod 2) = 0) then
+      if (((j-1) mod 2) = 0) then
         fpFPDF.Rect(vX, vY, lineWidth, BarHeight, 'F');
 
       vX :=  vX + lineWidth;
