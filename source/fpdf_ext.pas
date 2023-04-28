@@ -1240,7 +1240,7 @@ begin
 end;
 
 {$IfDef HAS_HTTP}
-{$IfDef USESYNAPSE}
+{$IfDef USE_SYNAPSE}
 procedure TFPDFExt.GetImageFromURL(const aURL: string; const aResponse: TStream);
 var
   vHTTP: THTTPSend;
