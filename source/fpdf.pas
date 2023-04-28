@@ -3,7 +3,7 @@
  FPDF Pascal
  https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal
 
- Copyright (C) 2023 Projeto ACBr - Daniel Sim√µes de Almeida
+ Copyright (C) 2023 Projeto ACBr - Daniel Simıes de Almeida
 
  Permission is hereby granted, free of charge, to any person obtaining a copy of
  this software and associated documentation files (the "Software"), to deal in

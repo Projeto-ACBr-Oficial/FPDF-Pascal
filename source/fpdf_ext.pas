@@ -3,7 +3,7 @@
  FPDF Pascal Extensions
  https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal
 
- Copyright (C) 2023 Projeto ACBr - Daniel Sim√µes de Almeida
+ Copyright (C) 2023 Projeto ACBr - Daniel Simıes de Almeida
 
  Permission is hereby granted, free of charge, to any person obtaining a copy of
  this software and associated documentation files (the "Software"), to deal in
@@ -513,7 +513,7 @@ procedure TFPDFScriptCodeI25.CodeI25(const ABarCode: string; vX: double;
   vY: double; BarHeight: double; BarWidth: double);
 const
   Chars: String = '0123456789AZ';
-  Bars: array[0..11] of String =
+  Bars: array[1..12] of String =
     (  'nnwwn', 'wnnnw', 'nwnnw', 'wwnnn', 'nnwnw', 'wnwnn', 'nwwnn',
        'nnnww', 'wnnwn', 'nwnwn', 'nn', 'wn');
 var
@@ -565,8 +565,7 @@ begin
     for j := 1 to Length(Bars[pcb]) do
       seq := seq + Bars[pcb][j] + Bars[pcs][j];
 
-    l := Length(seq);
-    for j := 1 to l do
+    for j := 1 to Length(seq) do
     begin
       // set lineWidth depending on value
       lineWidth := IfThen(seq[j] = 'n', narrow, wide);
