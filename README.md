@@ -19,6 +19,14 @@ FPDF has other benefits: high level functions. Here is a list of its main featur
 
     (Note: ~~Strike~~ = not implemented in Pascal translation)
 
+# How to use
+Use the force... read the sources...
+
+Please open the projects on "demo" folder, like: "tuto1", "tuto2", "tuto3", "tuto4", etc... Notice whe provide the same demos for Delphi and Lazarus/FPC
+
+You can also refer to original FPDF Reference Manual:
+http://www.fpdf.org/en/doc/index.php
+
 # Dependencies
 In order to maintain compatibility with a large number of Pascal IDEs, Units have few or none dependencies.
 
