@@ -37,13 +37,15 @@
 unit fpdf;
 
 // If you don't want the AnsiString vs String warnings to bother you
-{.$DEFINE REMOVE_CAST_WARN}
+//{$DEFINE REMOVE_CAST_WARN}
 
 {$IfNDef FPC}
   {$IFDEF REMOVE_CAST_WARN}
+   {$IF CompilerVersion >= 16}
     {$WARN IMPLICIT_STRING_CAST OFF}
     {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
-  {$ENDIF}
+   {$IfEnd}
+  {$EndIf}
 {$EndIf}
 
 {$IfDef FPC}
@@ -68,8 +70,21 @@ unit fpdf;
 interface
 
 uses
-  Classes, Contnrs,
-  {$IfDef FPC}zstream{$Else}ZLib{$EndIf},
+  Classes,
+  {$IfDef FPC}
+   zstream, Contnrs
+  {$Else}
+   {$IfDef HAS_SYSTEM_GENERICS}
+    System.Generics.Collections, System.Generics.Defaults
+   {$Else}
+    {$IF CompilerVersion >= 16}
+     System.Contnrs
+    {$Else}
+     Contnrs
+    {$IfEnd},
+   {$EndIf}
+   ZLib
+  {$EndIf},
   SysUtils;
 
 const
