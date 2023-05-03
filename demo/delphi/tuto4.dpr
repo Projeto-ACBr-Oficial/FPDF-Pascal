@@ -12,11 +12,14 @@ type
   protected
     col: Integer; // Current column
     y0: Double; // Ordinate of column start
-
-  public
     TheTitle: String;
 
-    constructor Create;
+    fpdir: String;
+    fpfiledir: String;
+
+    procedure InternalCreate; override;
+  public
+
     procedure Header; override;
     procedure Footer; override;
     procedure SetCol(ACol: Integer);
@@ -31,11 +34,13 @@ var
 
 { TMyFPDF }
 
-constructor TMyFPDF.Create;
+procedure TMyFPDF.InternalCreate;
 begin
-  inherited Create;
+  inherited InternalCreate;
   Col := 0;
   y0 := 0;
+  fpdir := ExtractFilePath(ParamStr(0)) + PathDelim;
+  fpfiledir := fpdir +  '..' + PathDelim + 'files' + PathDelim;
 end;
 
 procedure TMyFPDF.Header;
@@ -158,9 +163,9 @@ begin
     pdf.TheTitle := '20000 Leagues Under the Seas';
     pdf.SetTitle(pdf.TheTitle);
     pdf.SetAuthor('Jules Verne');
-    pdf.PrintChapter( 1, 'A RUNAWAY REEF', '20k_c1.txt');
-    pdf.PrintChapter( 2, 'THE PROS AND CONS', '20k_c2.txt');
-    pdf.SaveToFile('c:\temp\tuto4-pas.pdf');
+    pdf.PrintChapter( 1, 'A RUNAWAY REEF', pdf.fpfiledir+'20k_c1.txt');
+    pdf.PrintChapter( 2, 'THE PROS AND CONS', pdf.fpfiledir+'20k_c2.txt');
+    pdf.SaveToFile(pdf.fpdir+'tuto4-pas.pdf');
   finally
     pdf.Free;
   end;

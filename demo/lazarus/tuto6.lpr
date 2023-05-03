@@ -17,7 +17,10 @@ type
   protected
    fHREF: String;
    fFontStyle: String;
+   fpdir: String;
+   fpfiledir: String;
 
+   procedure InternalCreate; override;
    function FindNextTagPos(const AHtml: String; out ATag: String; OffSet: Integer): Integer;
    procedure WriteHTML(const AHtml: String);
    procedure OpenTag(const ATag: String);
@@ -25,17 +28,18 @@ type
    procedure SetStyle(const ATag: String; Enable: Boolean);
    procedure PutLink(const AURL, AText: String);
   public
-    constructor Create;
 
   end;
 
 { TMyFPDF }
 
-constructor TMyFPDF.Create;
+procedure TMyFPDF.InternalCreate;
 begin
-  inherited Create;
+  inherited InternalCreate;
   fHREF := '';
   fFontStyle := '';
+  fpdir := ExtractFilePath(ParamStr(0)) + PathDelim;
+  fpfiledir := fpdir +  '..' + PathDelim + 'files' + PathDelim;
 end;
 
 function TMyFPDF.FindNextTagPos(const AHtml: String; out ATag: String; OffSet: Integer): Integer;
@@ -179,11 +183,11 @@ begin
     // Second page
     pdf.AddPage();
     pdf.SetLink(link);
-    pdf.Image('logo.png', 10, 12, 30, 0, 'http://www.fpdf.org');
+    pdf.Image(pdf.fpfiledir+'logo.png', 10, 12, 30, 0, 'http://www.fpdf.org');
     pdf.SetLeftMargin(45);
     pdf.SetFontSize(14);
     pdf.WriteHTML(AHtml);
-    pdf.SaveToFile('c:\temp\tuto6-pas.pdf');
+    pdf.SaveToFile(pdf.fpdir+'tuto6-pas.pdf');
   finally
     pdf.Free;
   end;

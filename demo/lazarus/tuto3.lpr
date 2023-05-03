@@ -14,6 +14,11 @@ type
   { TMyFPDF }
 
   TMyFPDF = class(TFPDF)
+  protected
+    fpdir: String;
+    fpfiledir: String;
+
+    procedure InternalCreate; override;
   public
     TheTitle: String;
 
@@ -27,6 +32,13 @@ var
   pdf: TMyFPDF;
 
 { TMyFPDF }
+
+procedure TMyFPDF.InternalCreate;
+begin
+  inherited InternalCreate;
+  fpdir := ExtractFilePath(ParamStr(0)) + PathDelim;
+  fpfiledir := fpdir +  '..' + PathDelim + 'files' + PathDelim;
+end;
 
 procedure TMyFPDF.Header;
 var
@@ -111,9 +123,9 @@ begin
     pdf.TheTitle := '20000 Leagues Under the Seas';
     pdf.SetTitle(pdf.TheTitle);
     pdf.SetAuthor('Jules Verne');
-    pdf.PrintChapter( 1, 'A RUNAWAY REEF', '20k_c1.txt');
-    pdf.PrintChapter( 2, 'THE PROS AND CONS', '20k_c2.txt');
-    pdf.SaveToFile('c:\temp\tuto3-pas.pdf');
+    pdf.PrintChapter( 1, 'A RUNAWAY REEF', pdf.fpfiledir+'20k_c1.txt');
+    pdf.PrintChapter( 2, 'THE PROS AND CONS', pdf.fpfiledir+'20k_c2.txt');
+    pdf.SaveToFile(pdf.fpdir+'tuto3-pas.pdf');
   finally
     pdf.Free;
   end;

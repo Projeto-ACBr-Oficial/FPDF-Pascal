@@ -10,9 +10,12 @@ type
 
   TMyFPDF = class(TFPDF)
   protected
-   HREF: String;
-   FS: String;
+   fHREF: String;
+   fFontStyle: String;
+   fpdir: String;
+   fpfiledir: String;
 
+   procedure InternalCreate; override;
    function FindNextTagPos(const AHtml: String; out ATag: String; OffSet: Integer): Integer;
    procedure WriteHTML(const AHtml: String);
    procedure OpenTag(const ATag: String);
@@ -20,17 +23,18 @@ type
    procedure SetStyle(const ATag: String; Enable: Boolean);
    procedure PutLink(const AURL, AText: String);
   public
-    constructor Create;
 
   end;
 
 { TMyFPDF }
 
-constructor TMyFPDF.Create;
+procedure TMyFPDF.InternalCreate;
 begin
-  inherited Create;
-  HREF := '';
-  FS := '';
+  inherited InternalCreate;
+  fHREF := '';
+  fFontStyle := '';
+  fpdir := ExtractFilePath(ParamStr(0)) + PathDelim;
+  fpfiledir := fpdir +  '..' + PathDelim + 'files' + PathDelim;
 end;
 
 function TMyFPDF.FindNextTagPos(const AHtml: String; out ATag: String; OffSet: Integer): Integer;
@@ -68,8 +72,8 @@ begin
     AText := copy(AHtml, p1, p2-p1);
     if (AText <> '') then
     begin
-      if (Self.HREF <> '') then
-        PutLink(Self.HREF, AText)
+      if (Self.fHREF <> '') then
+        PutLink(Self.fHREF, AText)
       else
         Write(5, AText);
     end;
@@ -110,7 +114,7 @@ begin
     begin
       Inc(p1, 6);
       p2 := PosEx('"', ATag+'"', p1+1);
-      Self.HREF := copy(ATag, p1, p2-p1);
+      Self.fHREF := copy(ATag, p1, p2-p1);
     end;
   end;
 end;
@@ -124,20 +128,20 @@ begin
   if ((s = 'B') or (s = 'I') or (s = 'U')) then
     SetStyle(s, False)
   else if (s = 'A') then
-    Self.HREF := '';
+    Self.fHREF := '';
 end;
 
 procedure TMyFPDF.SetStyle(const ATag: String; Enable: Boolean);
 var
   p: Integer;
 begin
-  p := pos(ATag, Self.FS);
+  p := pos(ATag, Self.fFontStyle);
   if Enable and (p = 0) then
-    Self.FS := Self.FS + ATag
+    Self.fFontStyle := Self.fFontStyle + ATag
   else if (not Enable) and (p > 0) then
-    Delete(Self.FS, P, Length(ATag));
+    Delete(Self.fFontStyle, P, Length(ATag));
 
-  SetFont('',Self.FS);
+  SetFont('',Self.fFontStyle);
 end;
 
 procedure TMyFPDF.PutLink(const AURL, AText: String);
@@ -174,11 +178,11 @@ begin
     // Second page
     pdf.AddPage();
     pdf.SetLink(link);
-    pdf.Image('logo.png', 10, 12, 30, 0, 'http://www.fpdf.org');
+    pdf.Image(pdf.fpfiledir+'logo.png', 10, 12, 30, 0, 'http://www.fpdf.org');
     pdf.SetLeftMargin(45);
     pdf.SetFontSize(14);
     pdf.WriteHTML(AHtml);
-    pdf.SaveToFile('c:\temp\tuto6-pas.pdf');
+    pdf.SaveToFile(pdf.fpdir+'tuto6-pas.pdf');
   finally
     pdf.Free;
   end;

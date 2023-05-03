@@ -2,13 +2,18 @@ program tuto2;
 
 uses
   Classes, SysUtils,
-  fpdf_ext;
+  fpdf;
 
 type
 
   { TMyFPDF }
 
-  TMyFPDF = class(TFPDFExt)
+  TMyFPDF = class(TFPDF)
+  protected
+    fpdir: String;
+    fpfiledir: String;
+
+    procedure InternalCreate; override;
   public
     procedure Header; override;
     procedure Footer; override;
@@ -19,10 +24,17 @@ var
 
 { MyFPDF }
 
+procedure TMyFPDF.InternalCreate;
+begin
+  inherited InternalCreate;
+  fpdir := ExtractFilePath(ParamStr(0)) + PathDelim;
+  fpfiledir := fpdir +  '..' + PathDelim + 'files' + PathDelim;
+end;
+
 procedure TMyFPDF.Header;
 begin
   // Logo
-  Image('logo.png',10,6,30);
+  Image(fpfiledir+'logo.png',10,6,30);
   // Arial bold 15
   SetFont('Arial','B',15);
   // Move to the right
@@ -50,12 +62,11 @@ begin
     pdf.SetAliasNbPages();
     pdf.AddPage();
     pdf.SetFont('Times','',12);
-    pdf.CodeEAN13('123456789012', 60, 40);
-    pdf.Code39('ACBR RULES 1234567890', 60, 70);
+
     for i := 1 to 40 do
       pdf.Cell(0,10,'Printing line number '+IntToStr(i), '0', 1);
 
-    pdf.SaveToFile('c:\\temp\\tuto2-pas.pdf');
+    pdf.SaveToFile(pdf.fpdir+'tuto2-pas.pdf');
   finally
     pdf.Free;
   end;

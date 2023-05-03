@@ -13,7 +13,10 @@ type
 
   TMyFPDF = class(TFPDF)
   protected
+    fpdir: String;
+    fpfiledir: String;
 
+    procedure InternalCreate; override;
   public
     function LoadData(const AFile: String): TData;
     procedure BasicTable(aheader: TLine; adata: TData);
@@ -24,6 +27,13 @@ var
   pdf: TMyFPDF;
 
 { TMyFPDF }
+
+procedure TMyFPDF.InternalCreate;
+begin
+  inherited InternalCreate;
+  fpdir := ExtractFilePath(ParamStr(0)) + PathDelim;
+  fpfiledir := fpdir +  '..' + PathDelim + 'files' + PathDelim;
+end;
 
 function TMyFPDF.LoadData(const AFile: String): TData;
 var
@@ -165,7 +175,7 @@ begin
   pdf := TMyFPDF.Create;
   try
     // Data loading
-    adata := pdf.LoadData('countries.txt');
+    adata := pdf.LoadData(pdf.fpfiledir+'countries.txt');
     pdf.SetFont('Arial', '', 14);
     pdf.AddPage();
     pdf.BasicTable(aheader, adata);
@@ -173,7 +183,7 @@ begin
     pdf.ImprovedTable(aheader, adata);
     pdf.AddPage();
     pdf.FancyTable(aheader, adata);
-    pdf.SaveToFile('c:\temp\tuto5-pas.pdf');
+    pdf.SaveToFile(pdf.fpdir+'tuto5-pas.pdf');
   finally
     pdf.Free;
   end;
