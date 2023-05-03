@@ -1,11 +1,6 @@
 program demofpdfpascal;
 
-{$mode objfpc}{$H+}
-
 uses
-  {$IFDEF UNIX}{$IFDEF UseCThreads}
-  cthreads,
-  {$ENDIF}{$ENDIF}
   Classes, sysutils,
   fpdf, fpdf_ext;
 
@@ -431,7 +426,7 @@ end;
 
 constructor TPDFDemo.Create;
 begin
-  fpdir := ExtractFilePath(ParamStr(0)) + PathDelim;
+  fpdir := ExtractFilePath(ParamStr(0));
   fpfiledir := fpdir +  '..' + PathDelim + 'files' + PathDelim;
 end;
 
@@ -473,8 +468,8 @@ procedure TPDFDemo.CreatePDF;
 begin
   pdf := TFPDFExt.Create;
   try
-    pdf.OnHeader := @PrintHeader;
-    pdf.OnFooter := @PrintFooter;
+    pdf.OnHeader := PrintHeader;
+    pdf.OnFooter := PrintFooter;
     pdf.SetCompression(True);
 
     PrintIndex;
@@ -497,7 +492,7 @@ begin
   demo := TPDFDemo.Create;
   try
     demo.CreatePDF;
-    WriteLn(FormatDateTime('hh:mm:ss:zzz',now-hh));
+    //WriteLn(FormatDateTime('hh:mm:ss:zzz',now-hh));
   finally
     demo.Free;
   end;

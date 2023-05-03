@@ -56,6 +56,7 @@
 *.projdata
 *.tvsconfig
 *.dsk
+*.dof
 
 # Delphi history and backups
 __history/
@@ -80,3 +81,6 @@ modules/
 demo/lazarus/FPDFPascalTeste.pdf
 *.lps
 *.res
+
+# Test generated files
+*.pdf

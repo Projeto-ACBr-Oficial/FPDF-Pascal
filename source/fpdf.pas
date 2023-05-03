@@ -2827,19 +2827,22 @@ begin
     else if (idLink < Length(Self.links)) then
     begin
       lk := Self.links[idLink];
-      vh := -1;
-      vs := Self.PageInfo[lk.Page-1].Values['size'];
-      if (vs <> '') then
+      if (lk.Page > 0) then
       begin
-        PageSizeInfo := Split(vs);
-        if (Length(PageSizeInfo) > 1) then
-          vh := StrToFloatDef(PageSizeInfo[1], -1);
+        vh := -1;
+        vs := Self.PageInfo[lk.Page-1].Values['size'];
+        if (vs <> '') then
+        begin
+          PageSizeInfo := Split(vs);
+          if (Length(PageSizeInfo) > 1) then
+            vh := StrToFloatDef(PageSizeInfo[1], -1);
+        end;
+
+        if (vh = -1) then
+          vh := IfThen(Self.DefOrientation=poPortrait, Self.DefPageSize.h * Self.k,  Self.DefPageSize.w * Self.k);
+
+        s := s + Format('/Dest [%s 0 R /XYZ 0 %.2f null]>>', [Self.PageInfo[lk.Page-1].Values['n'], vh-lk.y*Self.k], FPDFFormatSetings);
       end;
-
-      if (vh = -1) then
-        vh := IfThen(Self.DefOrientation=poPortrait, Self.DefPageSize.h * Self.k,  Self.DefPageSize.w * Self.k);
-
-      s := s + Format('/Dest [%s 0 R /XYZ 0 %.2f null]>>', [Self.PageInfo[lk.Page-1].Values['n'], vh-lk.y*Self.k], FPDFFormatSetings);
     end;
 
     _put(s);
