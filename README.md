@@ -75,7 +75,8 @@ Note that at the beginning of Unit **fpf_ext.pas**, you can turn on/off, the sup
 
 - **DEFINE DelphiZXingQRCode:** Allows the generation of **QRCodes**
 
-# Scripts incorporados em **TFPDFExt**
+ 
+# Scripts embedded in **TFPDFExt**
 | **Method** | **Script URL** | **Author** |
 | --- | --- | --- |
 | TFPDFScriptCodeEAN | http://www.fpdf.org/en/script/script5.php | Olivier |
