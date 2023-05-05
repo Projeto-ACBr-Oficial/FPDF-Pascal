@@ -56,7 +56,7 @@ unit fpdf_ext;
 
 {$IfNDef FPC}
   {$IFDEF REMOVE_CAST_WARN}
-   {$IF CompilerVersion >= 16}
+   {$IF CompilerVersion >= 20}
     {$WARN IMPLICIT_STRING_CAST OFF}
     {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
    {$IfEnd}

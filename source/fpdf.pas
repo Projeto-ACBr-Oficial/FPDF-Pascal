@@ -41,7 +41,7 @@ unit fpdf;
 
 {$IfNDef FPC}
   {$IFDEF REMOVE_CAST_WARN}
-   {$IF CompilerVersion >= 16}       // Delphi 8 for .Net
+   {$IF CompilerVersion >= 20}
     {$WARN IMPLICIT_STRING_CAST OFF}
     {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
    {$IfEnd}
