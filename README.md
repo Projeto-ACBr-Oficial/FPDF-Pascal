@@ -19,6 +19,11 @@ FPDF has other benefits: high level functions. Here is a list of its main featur
 
     (Note: ~~Strike~~ = not implemented in Pascal translation)
 
+# What Can I do with FPDF Pascal ?
+Please check the file: [FPDFPascalTest.pdf](https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal/tree/main/demo/files/FPDFPascalTest.pdf)
+
+These PDF is generated when you run the Project "demofpdfpascal"
+
 # How to use
 Use the force... read the sources...
 

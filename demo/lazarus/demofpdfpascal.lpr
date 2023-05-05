@@ -49,7 +49,7 @@ begin
   if not Assigned(pdf) then
     Exit;
 
-  PageTitle := 'FPDF Pascal Test - Index, Links Test';
+  PageTitle := 'FPDF Pascal - Index, Links Test';
   pdf.AddPage;
 
   fpl1 := pdf.AddLink();
@@ -112,7 +112,7 @@ begin
   for i := 0 to 255 do
     AllChars := AllChars + chr(i)+' ';
 
-  PageTitle := 'FPDF Pascal Test - Fonts Test';
+  PageTitle := 'FPDF Pascal - Fonts Test';
   pdf.SetUTF8(False);
   pdf.AddPage;
   pdf.SetLink(fpl1);
@@ -178,7 +178,7 @@ begin
   if not Assigned(pdf) then
     Exit;
 
-  PageTitle := 'FPDF Pascal Test - Images Test';
+  PageTitle := 'FPDF Pascal - Images Test';
   pdf.AddPage;
   pdf.SetLink(fpl2);
   pdf.SetFont('Helvetica','',8);
@@ -219,7 +219,7 @@ var
   r, g, b, s, c, t: Integer;
   x, y, d: Double;
 begin
-  PageTitle := 'FPDF Pascal Test - Colors Test';
+  PageTitle := 'FPDF Pascal - Colors Test';
   pdf.AddPage;
   pdf.SetLink(fpl3);
   pdf.SetFont('Helvetica','',8);
@@ -263,7 +263,7 @@ end;
 
 procedure TPDFDemo.PrintShapesTest;
 begin
-  PageTitle := 'FPDF Pascal Test - Shapes Test';
+  PageTitle := 'FPDF Pascal - Shapes Test';
   pdf.AddPage;
   pdf.SetLink(fpl4);
   pdf.SetFont('Helvetica','',14);
@@ -307,7 +307,7 @@ procedure TPDFDemo.PrintBarCodesTest;
 var
   code: String;
 begin
-  PageTitle := 'FPDF Pascal Test - BarCodes Test';
+  PageTitle := 'FPDF Pascal - BarCodes Test';
   pdf.AddPage;
   pdf.SetLink(fpl5);
   pdf.SetFont('Helvetica','',6);
@@ -363,6 +363,7 @@ begin
   pdf.Write(5,'ABC sets combined: "'+code+'"');
 
   code := cGITURL;
+  // uncomment {$DEFINE DelphiZXingQRCode} in fpdf_ext.pas
   pdf.QRCode(53, 220, code);
   pdf.SetXY(42, 235);
   pdf.MultiCell(35, 5, '"'+code+'"', '0', 'C');
@@ -384,7 +385,7 @@ begin
   if not Assigned(pdf) then
     Exit;
 
-  PageTitle := 'FPDF Pascal Test - Large justified text';
+  PageTitle := 'FPDF Pascal - Large justified text';
   pdf.AddPage;
   pdf.SetLink(fpl6);
 
@@ -405,7 +406,7 @@ begin
   if not Assigned(pdf) then
     Exit;
 
-  PageTitle := 'FPDF Pascal Test - Layers Test';
+  PageTitle := 'FPDF Pascal - Layers Test';
   pdf.AddPage;
   pdf.SetLink(fpl7);
 

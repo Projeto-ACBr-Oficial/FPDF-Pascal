@@ -52,7 +52,7 @@ unit fpdf_ext;
 
 // If you have DelphiZXingQRCode Unit on you LibPath
 // https://github.com/foxitsoftware/DelphiZXingQRCode
-//{$DEFINE DelphiZXingQRCode}
+{$DEFINE DelphiZXingQRCode}
 
 {$IfNDef FPC}
   {$IFDEF REMOVE_CAST_WARN}
