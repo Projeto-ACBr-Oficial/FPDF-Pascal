@@ -71,7 +71,7 @@ So, always prefer to use the **TFPDFExt** class of Unit **fpf_ext.pas**
 # Dependencies of Third Party Units
 Note that at the beginning of Unit **fpf_ext.pas**, you can turn on/off, the support for various external Units, using DEFINE directives
 
-- **DEFINE USE_SYNAPSE:** Extend the "Image" method, allowing you to inform an Image by URL
+- **DEFINE USE_SYNAPSE:** Extend the "Image" method, allowing inform a Image by URL, and also allow to use "SetProtection" (password) features
 
 - **DEFINE DelphiZXingQRCode:** Allows the generation of **QRCodes**
 
@@ -86,6 +86,7 @@ Note that at the beginning of Unit **fpf_ext.pas**, you can turn on/off, the sup
 | TFPDFExt.Rotate | http://www.fpdf.org/en/script/script2.php | Olivier |
 | TFPDFExt.RoundedRect | http://www.fpdf.org/en/script/script35.php | Christophe Prugnaud |
 | TFPDFExt.AddLayer | http://www.fpdf.org/en/script/script97.php | Oliver |
+| TFPDFExt.SetProtection | http://www.fpdf.org/en/script/script37.php | Klemen Vodopivec |
 
 # About the translator
 Daniel Simões de Almeida is a Pascal multiplataform developer.
