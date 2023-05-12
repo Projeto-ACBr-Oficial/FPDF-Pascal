@@ -91,3 +91,4 @@ Note that at the beginning of Unit **fpf_ext.pas**, you can turn on/off, the sup
 # About the translator
 Daniel Simões de Almeida is a Pascal multiplataform developer.
 https://www.projetoacbr.com.br/
+
