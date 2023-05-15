@@ -1,0 +1,9 @@
+{
+	"name": "FPDF-Pascal",
+	"description": "Biblioteca PDF para Lazarus e Delphi 7-11",
+	"version": "1.0.0",
+	"homepage": "",
+	"mainsrc": "./source",
+	"projects": [],
+	"dependencies": {}
+}
