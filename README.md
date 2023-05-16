@@ -32,7 +32,7 @@ Please open the projects on "demo" folder, like: "tuto1", "tuto2", "tuto3", "tut
 You can also refer to original FPDF Reference Manual:
 http://www.fpdf.org/en/doc/index.php
 
-# Install used Boss
+# Install using Boss
 https://github.com/HashLoad/boss
 
 Command line: 
