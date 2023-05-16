@@ -32,6 +32,13 @@ Please open the projects on "demo" folder, like: "tuto1", "tuto2", "tuto3", "tut
 You can also refer to original FPDF Reference Manual:
 http://www.fpdf.org/en/doc/index.php
 
+# Install used Boss
+https://github.com/HashLoad/boss
+
+Command line: 
+
+boss install https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal.git
+
 # Dependencies
 In order to maintain compatibility with a large number of Pascal IDEs, Units have few or none dependencies.
 
