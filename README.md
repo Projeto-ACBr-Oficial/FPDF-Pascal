@@ -41,9 +41,9 @@ http://www.fpdf.org/en/doc/index.php
 # Install using Boss
 https://github.com/HashLoad/boss
 
-Command line: 
+Command line:
 
-boss install https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal.git
+`boss install https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal.git`
 
 # Dependencies
 In order to maintain compatibility with a large number of Pascal IDEs, Units have few or none dependencies.
@@ -63,10 +63,12 @@ We do not use "Graphics" Units. So you can use FPF-Pascal in CONSOLE Projects. N
 
 # Reporting Bugs
 Please report if you notice any compilation problem or other issues.
+
 https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal/issues
 
 # License
-We use MIT License. The same license from FPDF orginal sources. 
+We use MIT License. The same license from FPDF orginal sources.
+
 https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal/blob/main/LICENSE.TXT
 
 # About the translation of sources.
