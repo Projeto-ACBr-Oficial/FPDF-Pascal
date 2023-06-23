@@ -477,6 +477,7 @@ begin
     pdf.OnHeader := @PrintHeader;
     pdf.OnFooter := @PrintFooter;
     pdf.SetCompression(True);
+    //pdf.SetProtection([canPrint, canCopy], '1234', '5678');
 
     PrintIndex;
     PrintFontsTest;
