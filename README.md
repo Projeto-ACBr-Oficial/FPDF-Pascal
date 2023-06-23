@@ -14,7 +14,7 @@ FPDF has other benefits: high level functions. Here is a list of its main featur
 - Image support (JPEG, PNG and ~~GIF~~)
 - Colors
 - Links
-- HTML tags support 
+- HTML tags support in WriteHTML method
    - `<b>bold</b>`
    - `<i>italic</i>`
    - `<u>underlined</u>`
