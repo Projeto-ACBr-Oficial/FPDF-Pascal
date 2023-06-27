@@ -1,0 +1,68 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>AddPage</title>
+<link type="text/css" rel="stylesheet" href="fpdf.css">
+</head>
+<body>
+<h1>AddPage</h1>
+<code>AddPage;</code><br>
+<code>AddPage(AOrientation: <b>TFPDFOrientation</b>);</code><br>
+<code>AddPage(AOrientation: <b>TFPDFOrientation</b>; ASize: <b>TFPDFPageSize</b>; ARotation: <b>TFPDFRotation</b> );</code><br>
+<h2>Descrição</h2>
+Adiciona uma página nova ao documento. Se uma página já existir, o método de Footer() é
+chamado antes para saída do rodapé. Então a página é adicionada, a posição atual é ajustada
+ao canto superior-esquerdo de acordo com as margens esquerdas e superiores, e Header() é chamado para montar o cabeçalho.
+<br>
+A fonte que foi ajustada antes de chamar é restaurada automaticamente. Não há nenhuma
+necessidade de chamar outra vez SetFont() se você quiser continuar com a mesma fonte. O
+mesmo é verdadeiro para cores e largura da linha.
+<br>
+A origem do sistema de coordenadas está no canto superior-esquerdo e as ordenadas crescem
+para baixo.
+<h2>Parâmetros</h2>
+<dl class="param">
+    <dt><code>AOrientation</code></dt>
+    <dd>
+        Orientação padrão da página. Os valores possíveis são:
+        <ul>
+            <li><code>poPortrait</code>: Retrato</li>
+            <li><code>poLandscape</code>: Paisagem</li>
+        </ul>
+        O valor padrão é <code>poPortrait</code>.
+    </dd>
+    <dt><code>APageSize</code></dt>
+    <dd>
+        Valor personalizado na forma de um record do tipo <code>TFPDFPageSize</code> com dois elementos contendo a
+        largura e a
+        altura (expressas na unidade obtida por <code>unit</code>).
+        <br>
+        <br>
+        <code>TFPDFPageSize = record<br>
+&emsp;w: Double;<br>
+&emsp;h: Double;<br>
+end;</code>
+        <br><br>
+    </dd>
+<dt><code>ARotation</code></dt>
+<dd>
+Ângulo que será usado para girar a página. Deve ser múltiplo de 90; valores positivos
+significam rotação no sentido horário. O valor padrão é 0. Os valores permitidos são:
+<ul>
+    <li><code>ro0</code></li>
+    <li><code>ro90</code></li>
+    <li><code>ro180</code></li>
+    <li><code>ro270</code></li>    
+</ul>
+</dd>
+</dl>
+<h2>Veja também</h2>
+<a href="__construct.htm">__construct</a>,
+<a href="header.htm">Header</a>,
+<a href="footer.htm">Footer</a>,
+<a href="setmargins.htm">SetMargins</a>
+<hr style="margin-top:1.5em">
+<div style="text-align:center"><a href="index.htm">Índice</a></div>
+</body>
+</html>
