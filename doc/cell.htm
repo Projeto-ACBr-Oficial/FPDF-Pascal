@@ -7,7 +7,10 @@
 </head>
 <body>
 <h1>Cell</h1>
-<code>Cell(<b>float</b> w [, <b>float</b> h [, <b>string</b> txt [, <b>mixed</b> border [, <b>int</b> ln [, <b>string</b> align [, <b>boolean</b> fill [, <b>mixed</b> link]]]]]]])</code>
+<code>Cell(vWidth: <b>Double</b>; vHeight: <b>Double</b> = 0; const vText: <b>String</b> = '';
+    const vBorder: <b>String</b> = '0'; vLineBreak: <b>Integer</b> = 0; const vAlign: <b>String</b> = '';
+    vFill: <b>Boolean</b> = False; vLink: <b>String</b> = '');
+    
 <h2>Descrição</h2>
 Imprime uma célula (área retangular) com bordas opcionais, cor de fundo e texto.
 O canto superior-esquerdo da célula corresponde à posição atual. O texto pode ser alinhado
@@ -18,37 +21,37 @@ Se a quebra de página automática está habilitada e a pilha for além do limite, u
 página é feita antes da impressão.
 <h2>Parâmetros</h2>
 <dl class="param">
-<dt><code>w</code></dt>
+<dt><code>vWidth</code></dt>
 <dd>
 Largura da célula. Se <code>0</code>, a célula se extende até a margem direita.
 </dd>
-<dt><code>h</code></dt>
+<dt><code>vHeight</code></dt>
 <dd>
 Altura da célula.
 Valor padrão: <code>0</code>.
 </dd>
-<dt><code>txt</code></dt>
+<dt><code>vText</code></dt>
 <dd>
 Texto a ser impresso.
 Valor padrão: texto vazio.
 </dd>
-<dt><code>border</code></dt>
+<dt><code>vBorder</code></dt>
 <dd>
-Indica se as bordas devem ser desenhadas em volta da célula. O valor deve ser um número:
+Indica se as bordas devem ser desenhadas em volta da célula. O valor deve ser:
 <ul>
-<li><code>0</code>: sem borda</li>
-<li><code>1</code>: com borda</li>
+<li><code>'0'</code>: sem borda</li>
+<li><code>'1'</code>: com borda</li>
 </ul>
 ou um texto contendo alguns ou todos os seguintes caracteres (em qualquer ordem):
 <ul>
-<li><code>L</code>: esquerda</li>
-<li><code>T</code>: acima</li>
-<li><code>R</code>: direita</li>
-<li><code>B</code>: abaixo</li>
+<li><code>'L'</code>: esquerda</li>
+<li><code>'T'</code>: acima</li>
+<li><code>'R'</code>: direita</li>
+<li><code>'B'</code>: abaixo</li>
 </ul>
 Valor padrão: <code>0</code>.
 </dd>
-<dt><code>ln</code></dt>
+<dt><code>vLineBreak</code></dt>
 <dd>
 Indica onde a posição corrente deve ficar depois que a função for chamada. Os valores possíveis são:
 <ul>
@@ -59,21 +62,21 @@ Indica onde a posição corrente deve ficar depois que a função for chamada. Os va
 Usar o valor <code>1</code> é equivalente a usar <code>0</code> e chamar a função Ln() logo após.
 Valor padrão: <code>0</code>.
 </dd>
-<dt><code>align</code></dt>
+<dt><code>vAlign</code></dt>
 <dd>
 Permite centralizar ou alinhar o texto. Os valores possíveis são:
 <ul>
-<li><code>L</code> ou um texto vazio: alinhado à esquerda (valor padrão)</li>
-<li><code>C</code>: centralizado</li>
-<li><code>R</code>: alinhado à direita</li>
+<li><code>'L'</code> ou um texto vazio: alinhado à esquerda (valor padrão)</li>
+<li><code>'C'</code>: centralizado</li>
+<li><code>'R'</code>: alinhado à direita</li>
 </ul>
 </dd>
-<dt><code>fill</code></dt>
+<dt><code>vFill</code></dt>
 <dd>
 Indica se o fundo da célula deve ser preenchido (<code>true</code>) ou transparente (<code>false</code>).
 Valor padrão: <code>false</code>.
 </dd>
-<dt><code>link</code></dt>
+<dt><code>vLink</code></dt>
 <dd>
 URL ou identificador retornado por AddLink().
 </dd>
@@ -81,11 +84,11 @@ URL ou identificador retornado por AddLink().
 <h2>Exemplo</h2>
 <div class="doc-source">
 <pre><code>// Escolhe a fonte
-$pdf-&gt;SetFont('Arial','B',16);
+PDF.SetFont('Arial','B',16);
 // Move para 8 cm a direita
-$pdf-&gt;Cell(80);
+PDF.Cell(80);
 // Texto centralizado em uma célula de 20*10 mm com borda e quebra de linha
-$pdf-&gt;Cell(20,10,'Title',1,1,'C');</code></pre>
+PDF.Cell(20,10,'Title',1,1,'C');</code></pre>
 </div>
 <h2>Veja também</h2>
 <a href="setfont.htm">SetFont</a>,

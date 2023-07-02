@@ -2,20 +2,26 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-<title>Footer</title>
+<title>AliasNbPages</title>
 <link type="text/css" rel="stylesheet" href="fpdf.css">
 </head>
 <body>
-<h1>Footer</h1>
-<code>Footer;</code>
+<h1>SetAliasNbPages</h1>
+<code>SetAliasNbPages(const AAlias: <b>String</b>);</code>
 <h2>Descrição</h2>
-Este método é usado para criar o rodapé da página. Ele é automaticamente chamado por
-AddPage() e Close() e não deve ser chamado diretamente pela aplicação. A implementação
-em FPDF está vazia, então você deve criar uma subclasse e sobrepor o método se você
-quiser um processamento específico.
+Define um apelido para o número total de páginas. Ele será substituído quando o documento
+for fechado.
+<h2>Parâmetros</h2>
+<dl class="param">
+<dt><code>AAlias</code></dt>
+<dd>
+O apelido. Valor padrão: <code>{nb}</code>.
+</dd>
+</dl>
 <h2>Exemplo</h2>
 <div class="doc-source">
-<pre><code>TFPDFExt = class(TFPDF)
+<pre><code>
+TFPDFExt = class(TFPDF)
   protected
     procedure Footer; override;
 end;
@@ -36,7 +42,8 @@ PDF := TFPDFExt.Create;
 PDF.SetAliasNbPages();</code></pre>
 </div>
 <h2>Veja também</h2>
-<a href="header.htm">Header</a>
+<a href="pageno.htm">PageNo</a>,
+<a href="footer.htm">Footer</a>
 <hr style="margin-top:1.5em">
 <div style="text-align:center"><a href="index.htm">Índice</a></div>
 </body>

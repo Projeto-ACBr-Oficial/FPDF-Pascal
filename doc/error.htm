@@ -7,17 +7,23 @@
 </head>
 <body>
 <h1>Error</h1>
-<code>Error(<b>string</b> msg)</code>
+<code>Error(const ATextMsg: <b>String</b>; E: <b>Exception</b> = nil);</code>
 <h2>Descrição</h2>
 Este método é chamado automaticamente caso ocorra um erro fatal; ele simplesmente dispara uma
 exceção com a mensagem informada.<br>
 Uma classe herdada pode substituí-lo para personalizar a manipulação de erro, mas o método não
-deve retornar nunca, caso contrário, o documento resultante provavelmente seria inválido.
+deve retornar null, caso contrário, o documento resultante provavelmente seria inválido.<br>
+Pode ser utilizada também para reproduzir a mensagem dentro de um tratamento de exceção <b>Try/Except</b>.<br>
 <h2>Parâmetros</h2>
 <dl class="param">
-<dt><code>msg</code></dt>
+<dt><code>ATextMsg</code></dt>
 <dd>
 A mensagem de erro.
+</dd>
+<dt><code>E</code></dt>
+<dd>
+Exceção capturada quando utilizado dentro de um Try/Except.
+Caso utilizado este parâmetro a mensagem da exceção é concatenada com ATextMsg.
 </dd>
 </dl>
 <hr style="margin-top:1.5em">
