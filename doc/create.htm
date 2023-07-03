@@ -1,0 +1,83 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title>Create</title>
+    <link type="text/css" rel="stylesheet" href="fpdf.css">
+</head>
+
+<body>
+    <h1>Create</h1>
+    <code>
+    Create(AOrientation: <b>TFPDFOrientation</b>; APageUnit: <b>TFPDFUnit</b>;APageFormat: <b>TFPDFPageFormat</b>);<br>
+    Create(AOrientation: <b>TFPDFOrientation</b>; APageUnit: <b>TFPDFUnit</b>;APageSize: <b>TFPDFPageSize</b>);   
+</code>
+    <h2>Descrição</h2>
+    Esta é o construtor da classe. Ele permite que seja definido o formato da página, a orientação
+    e a unidade de medida usada em todos os métodos (exceto para tamanhos de fonte).
+    <h2>Parâmetros</h2>
+    <dl class="param">
+        <dt><code>AOrientation</code></dt>
+        <dd>
+            Orientação padrão da página. Os valores possíveis são:
+            <ul>
+                <li><code>poPortrait</code>: Retrato</li>
+                <li><code>poLandscape</code>: Paisagem</li>
+            </ul>
+            O valor padrão é <code>poPortrait</code>.
+        </dd>
+        <dt><code>APageUnit</code></dt>
+        <dd>
+            Unidade de medida do usuário. Os valores possíveis são:
+            <ul>
+                <li><code>puPT</code>: pontos</li>
+                <li><code>puMM</code>: millímetros</li>
+                <li><code>puCM</code>: centímetros</li>
+                <li><code>puIN</code>: polegadas</li>
+                <li><code>puPX</code>: pixel</li>
+            </ul>
+            Um ponto é igual a 1/72 polegadas, isto é o mesmo que 0.35 mm (uma polegada são 2.54 cm).
+            Isto é uma unidade muito comum em tipografia; os tamanhos das fontes são medidos por esta unidade.
+            A unidade pixel vale 0.75 do ponto.
+            <br>
+            <br>
+            O valor padrão é <code>puMM</code>.
+        </dd>
+        <dt><code>APageFormat</code></dt>
+        <dd>
+            O formato usado pelas páginas. Pode ser um dos seguintes valores:
+            <ul>
+                <li><code>pfA3</code></li>
+                <li><code>pfA4</code></li>
+                <li><code>pfA5</code></li>
+                <li><code>pfLetter</code></li>
+                <li><code>pfLegal</code></li>
+            </ul>
+            O valor padrão é <code>pfA4</code>.
+        </dd>
+        <dt><code>APageSize</code></dt>
+        <dd>
+            Valor personalizado na forma de um record do tipo <code>TFPDFPageSize</code> com dois elementos contendo a
+            largura e a
+            altura (expressas na unidade obtida por <code>unit</code>).
+            <br>
+            <br>
+            <code>TFPDFPageSize = record<br>
+    &emsp;w: Double;<br>
+    &emsp;h: Double;<br>
+end;</code>
+            <br><br>
+
+        </dd>
+    </dl>
+    <h2>Exemplo</h2>
+    Exemplo da criação de uma página de tamanho A3 com orientação Retrato e unidades em cm:
+    <div class="doc-source">
+        <pre><code>FPDF = TFPDF.Create(poPortrait, puCM, pfA3);</code></pre>
+    </div>
+    <hr style="margin-top:1.5em">
+    <div style="text-align:center"><a href="index.htm">Índice</a></div>
+</body>
+
+</html>
