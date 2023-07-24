@@ -325,6 +325,8 @@ type
     procedure Draw2DMatrix(AMatrix: TFPDF2DMatrix; vX: double; vY: double;
       DotSize: Double = 0);
 
+    procedure SetDash(ABlack, AWhite: double);
+
     property OnHeader: TFPDFEvent read fOnHeader write fOnHeader;
     property OnFooter: TFPDFEvent read fOnFooter write fOnFooter;
 
@@ -1397,6 +1399,15 @@ begin
     SetStyle(s, False)
   else if (s = 'A') then
     Self.fHREF := '';
+end;
+
+procedure TFPDFExt.SetDash(ABlack, AWhite: double);
+{ http://www.fpdf.org/en/script/script33.php - yukihiro_o }
+begin
+  if (ABlack > 0) and (AWhite > 0) then
+    _out(Format('[%.3F %.3F] 0 d', [ABlack * Self.k, AWhite * Self.k]))
+  else
+    _out('[] 0 d');
 end;
 
 procedure TFPDFExt.SetStyle(const ATag: String; Enable: Boolean);
