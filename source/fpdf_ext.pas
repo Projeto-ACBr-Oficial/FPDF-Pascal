@@ -328,6 +328,9 @@ type
     procedure SetDash(ABlack, AWhite: double); overload;
     procedure SetDash(AWidth: double); overload;
     function WordWrap(var AText: string; AMaxWidth: Double; AIndent: double = 0): integer;
+    function GetNumLines(const AText: string; AWidth: Double; AIndent: double = 0): integer;
+    function GetStringHeight(const AText: string; AWidth: double;
+      ALineSpacing: double = 0; AIndent: double = 0): double;
 
     property OnHeader: TFPDFEvent read fOnHeader write fOnHeader;
     property OnFooter: TFPDFEvent read fOnFooter write fOnFooter;
@@ -1712,6 +1715,25 @@ procedure TFPDFExt.Footer;
 begin
   if Assigned(fOnFooter) then
     fOnFooter(Self);
+end;
+
+function TFPDFExt.GetNumLines(const AText: string; AWidth,
+  AIndent: double): integer;
+var
+  LocalText: string;
+begin
+  LocalText := Trim(AText);
+  Result := WordWrap(LocalText, AWidth - 0.2, AIndent);
+end;
+
+function TFPDFExt.GetStringHeight(const AText: string; AWidth, ALineSpacing,
+  AIndent: double): double;
+var
+  NumLines: integer;
+begin
+  NumLines := GetNumLines(AText, AWidth, AIndent);
+  Result := RoundTo((NumLines * FontSize) + IfThen(NumLines > 1, NumLines * ALineSpacing), -2);
+  Result := Result + 0.5;
 end;
 
 {$IfDef HAS_HTTP}
