@@ -439,7 +439,7 @@ const
 
 function SwapBytes(Value: Cardinal): Cardinal; overload;
 function SwapBytes(Value: Word): Word; overload;
-function Split(const AString: string; const ADelimiter: Char = ' '): TStringArray;
+function Split(const AString: string; const ADelimiter: string = ' '): TStringArray;
 function CountStr(const AString, SubStr : String ) : Integer ;
 
 var
@@ -3578,7 +3578,7 @@ begin
   Bytes(Result)[1]:= Bytes(Value)[0];
 end;
 
-function Split(const AString: string; const ADelimiter: Char = ' '): TStringArray;
+function Split(const AString: string; const ADelimiter: string = ' '): TStringArray;
 var
   p1, p2, i: Integer;
 begin
@@ -3586,6 +3586,8 @@ begin
   i := 0;
   p1 := 1;
   p2 := pos(ADelimiter, AString);
+  if (p2 = 0) and (AString <> '') then
+    p2 := Length(AString) + 1;
   while (p2 > 0) do
   begin
     Inc(i);
