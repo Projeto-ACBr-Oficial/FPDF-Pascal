@@ -401,7 +401,8 @@ type
       const vBorder: String = '0'; vLineBreak: Integer = 0; const vAlign: String = '';
       vFill: Boolean = False; vLink: String = ''); virtual;
     procedure MultiCell(vWidth, vHeight: Double; const vText: String;
-      const vBorder: String = '0'; const vAlign: String = 'J'; vFill: Boolean = False);
+      const vBorder: String = '0'; const vAlign: String = 'J'; vFill: Boolean = False;
+      AIndent: double = 0);
     procedure Write(vHeight: Double; const vText: String; const vLink: String = '');
     procedure Ln(vHeight: Double = 0);
 
@@ -1400,14 +1401,15 @@ end;
 
 
 procedure TFPDF.MultiCell(vWidth, vHeight: Double; const vText: String;
-  const vBorder: String; const vAlign: String; vFill: Boolean);
+  const vBorder: String; const vAlign: String; vFill: Boolean; AIndent: double);
+{ http://www.fpdf.org/en/script/script39.php }
 var
   cw: TFPDFFontInfo;
-  wmax: Double;
+  w, wFirst, wOther, wMax, wMaxFirst, wMaxOther, SaveX: Double;
   s, b, vb, b2: String;
   nb, sep, i, j, l, ns, nl, ls: Integer;
   c: Char;
-  vUTF8: Boolean;
+  vUTF8, First: Boolean;
 begin
   // Output text with automatic or explicit line breaks
   if not Assigned(Self.CurrentFont) then
@@ -1419,7 +1421,12 @@ begin
     if (vWidth=0) then
       vWidth := Self.w-Self.rMargin-Self.x;
 
-    wmax := (vWidth-2*Self.cMargin)*1000/Self.FontSize;
+    wFirst := vWidth - AIndent;
+    wOther := vWidth;
+
+    wMaxFirst := (wFirst-2*Self.cMargin)*1000/Self.FontSize;
+    wMaxOther := (wOther-2*Self.cMargin)*1000/Self.FontSize;
+
     s := StringReplace(ConvertTextToAnsi(vText), CR, '', [rfReplaceAll]);
     Self.UseUTF8 := False;
     nb := Length(s);
@@ -1455,6 +1462,7 @@ begin
     ns := 0;
     ls := 0;
     nl := 1;
+    First := True;
     while (i <= nb) do
     begin
       // Get next character
@@ -1488,7 +1496,19 @@ begin
       end;
 
       l := l + cw[ord(c)];
-      if (l> wmax) then
+
+      if First then
+      begin
+        wMax := wMaxFirst;
+        w := wFirst;
+      end
+      else
+      begin
+        wMax := wMaxOther;
+        w := wOther;
+      end;
+
+      if (l> wMax) then
       begin
         // Automatic line break
         if (sep=-1) then
@@ -1500,8 +1520,14 @@ begin
   	        Self.ws := 0;
             _out('0 Tw');
           end;
-
+          SaveX := Self.x;
+          if First and (AIndent >0 ) then
+          begin
+            Self.SetX(Self.x + AIndent);
+            First := False;
+          end;
           Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+          Self.SetX(SaveX);
         end
         else
         begin
@@ -1514,8 +1540,14 @@ begin
 
             _out(Format('%.3f Tw', [Self.ws*Self.k], FPDFFormatSetings));
           end;
-
+          SaveX := Self.x;
+          if First and (AIndent >0 ) then
+          begin
+            Self.SetX(Self.x + AIndent);
+            First := False;
+          end;
           Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
+          Self.SetX(SaveX);
           i := sep+1;
         end;
 
