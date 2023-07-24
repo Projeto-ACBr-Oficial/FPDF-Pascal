@@ -325,7 +325,8 @@ type
     procedure Draw2DMatrix(AMatrix: TFPDF2DMatrix; vX: double; vY: double;
       DotSize: Double = 0);
 
-    procedure SetDash(ABlack, AWhite: double);
+    procedure SetDash(ABlack, AWhite: double); overload;
+    procedure SetDash(AWidth: double); overload;
 
     property OnHeader: TFPDFEvent read fOnHeader write fOnHeader;
     property OnFooter: TFPDFEvent read fOnFooter write fOnFooter;
@@ -1408,6 +1409,11 @@ begin
     _out(Format('[%.3f %.3f] 0 d', [ABlack * Self.k, AWhite * Self.k]))
   else
     _out('[] 0 d');
+end;
+
+procedure TFPDFExt.SetDash(AWidth: double);
+begin
+  SetDash(AWidth, AWidth);
 end;
 
 procedure TFPDFExt.SetStyle(const ATag: String; Enable: Boolean);
