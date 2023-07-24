@@ -1465,7 +1465,7 @@ begin
         if (Self.ws > 0) then
         begin
           Self.ws := 0;
-  	  _out('0 Tw');
+  	      _out('0 Tw');
         end;
 
         Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
@@ -1494,10 +1494,10 @@ begin
         if (sep=-1) then
         begin
           if (i=j) then
-  	    Inc(i);
-  	  if(Self.ws > 0) then
+  	        Inc(i);
+  	      if(Self.ws > 0) then
           begin
-  	    Self.ws := 0;
+  	        Self.ws := 0;
             _out('0 Tw');
           end;
 
@@ -1512,11 +1512,11 @@ begin
             else
               Self.ws := 0;
 
-  	    _out(Format('%.3f Tw', [Self.ws*Self.k], FPDFFormatSetings));
-  	  end;
+            _out(Format('%.3f Tw', [Self.ws*Self.k], FPDFFormatSetings));
+          end;
 
-  	  Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
-  	  i := sep+1;
+          Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
+          i := sep+1;
         end;
 
         sep := -1;
@@ -1592,8 +1592,8 @@ begin
         if (nl = 1) then
         begin
           Self.x := Self.lMargin;
-  	  vw := Self.w-Self.rMargin-Self.x;
-  	  wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
+          vw := Self.w-Self.rMargin-Self.x;
+          wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
         end;
 
         Inc(nl);
@@ -1611,25 +1611,25 @@ begin
         begin
           if(Self.x > Self.lMargin) then
           begin
-  	    // Move to next line
-  	    Self.x := Self.lMargin;
-  	    Self.y := Self.y + vHeight;
-  	    vw := Self.w-Self.rMargin-Self.x;
-  	    wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
-  	    Inc(i);
-  	    Inc(nl);
-  	    continue;
-  	  end;
+            // Move to next line
+            Self.x := Self.lMargin;
+            Self.y := Self.y + vHeight;
+            vw := Self.w-Self.rMargin-Self.x;
+            wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
+            Inc(i);
+            Inc(nl);
+            continue;
+          end;
 
           if (i = j) then
             inc(i);
 
-  	  Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', False, vLink);
+  	      Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', False, vLink);
         end
         else
         begin
           Cell(vw, vHeight, copy(s, j, sep-j), '0', 2, '', False, vLink);
-  	  i := sep+1;
+  	      i := sep+1;
         end;
 
         sep := -1;
@@ -1638,8 +1638,8 @@ begin
         if (nl=1) then
         begin
           Self.x := Self.lMargin;
-  	  vw := Self.w-Self.rMargin-Self.x;
-  	  wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
+          vw := Self.w-Self.rMargin-Self.x;
+          wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
         end;
 
         Inc(nl);
@@ -2991,10 +2991,10 @@ begin
     begin
       if (Self.encodings.Values[CFontEncodeStr[Font.enc]] = '') then
       begin
-	_newobj();
-	_put('<</Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences ['+Font.diff+']>>');
-	_put('endobj');
-	Self.encodings.Values[CFontEncodeStr[Font.enc]] := IntToStr(Self.n);
+        _newobj();
+        _put('<</Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences ['+Font.diff+']>>');
+        _put('endobj');
+        Self.encodings.Values[CFontEncodeStr[Font.enc]] := IntToStr(Self.n);
       end;
     end;
 
@@ -3010,8 +3010,8 @@ begin
 
       if (cmaps.Values[cmapkey] = '') then
       begin
-	_putstreamobject(cmap);
-	cmaps.Values[cmapkey] := IntToStr(Self.n);
+        _putstreamobject(cmap);
+        cmaps.Values[cmapkey] := IntToStr(Self.n);
       end;
     end;
 
