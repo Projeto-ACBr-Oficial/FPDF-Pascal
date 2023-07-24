@@ -327,6 +327,7 @@ type
 
     procedure SetDash(ABlack, AWhite: double); overload;
     procedure SetDash(AWidth: double); overload;
+    function WordWrap(var AText: string; AMaxWidth: Double; AIndent: double = 0): integer;
 
     property OnHeader: TFPDFEvent read fOnHeader write fOnHeader;
     property OnFooter: TFPDFEvent read fOnFooter write fOnFooter;
@@ -1150,6 +1151,75 @@ end;
 procedure TFPDFExt.OpenLayerPane();
 begin
   Self.open_layer_pane := true;
+end;
+
+function TFPDFExt.WordWrap(var AText: string; AMaxWidth,
+  AIndent: double): integer;
+{ http://www.fpdf.org/en/script/script49.php - Ron Korving }
+var
+  Space, Width, WordWidth: Double;
+  Lines, Words: TStringArray;
+  Line, Word: string;
+  i, j, L: integer;
+begin
+  AText := Trim(AText);
+  if AText = '' then
+    Exit(0);
+  Space := Self.GetStringWidth(' ');
+  Lines := Split(AText, sLineBreak);
+  AText := '';
+  AMaxWidth := AMaxWidth - AIndent;
+  Result := 0;
+  for i := 0 to Length(Lines) - 1 do
+  begin
+    Line := Lines[i];
+    Words := Split(Line, ' ');
+    Width := 0;
+    for j := 0 to Length(Words) - 1 do
+    begin
+      Word := Words[j];
+      if Trim(Word) = '' then
+        Continue;
+      WordWidth := Self.GetStringWidth(Word);
+      if WordWidth > AMaxWidth then
+      begin
+        // Word is too long, we cut it
+        for L := 1 to Length(Word) do
+        begin
+          WordWidth := Self.GetStringWidth(Copy(Word, L, 1));
+          if (Width + WordWidth <= AMaxWidth) then
+          begin
+            Width := Width + WordWidth;
+            AText := AText + Copy(Word, L, 1);
+          end
+          else
+          begin
+            Width := WordWidth;
+            AText := TrimRight(AText) + sLineBreak + Copy(Word, L, 1);
+            Inc(Result);
+            AMaxWidth := AMaxWidth + AIndent;
+          end;
+        end;
+      end
+      else
+        if (Width + WordWidth <= AMaxWidth) then
+        begin
+          Width := Width + WordWidth + Space;
+          AText := AText + Word + ' ';
+        end
+        else
+        begin
+          Width := WordWidth + Space;
+          AText := TrimRight(AText) + sLineBreak + Word + ' ';
+          Inc(Result);
+          AMaxWidth := AMaxWidth + AIndent;
+        end;
+    end;
+    AText := TrimRight(AText) + sLineBreak;
+    Inc(Result);
+    AMaxWidth := AMaxWidth + AIndent;
+  end;
+  AText := TrimRight(AText);
 end;
 
 procedure TFPDFExt.WriteHTML(const AHtml: String);
