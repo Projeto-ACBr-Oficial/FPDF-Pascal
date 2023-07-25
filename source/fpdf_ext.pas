@@ -1169,8 +1169,10 @@ var
   i, j, L: integer;
 begin
   AText := Trim(AText);
+  Result := 0;
   if AText = '' then
-    Exit(0);
+    Exit;
+  
   Space := Self.GetStringWidth(' ');
   Lines := Split(AText, sLineBreak);
   AText := '';
