@@ -1073,7 +1073,8 @@ end;
 function TFPDF.GetStringWidth(const vText: String): Double;
 var
   cw: TFPDFFontInfo;
-  vw, l, i: Integer;
+  lines: TStringArray;
+  vw, vw1, l, i, j: Integer;
 begin
   // Get width of a string in the current font
   Result := 0;
@@ -1082,9 +1083,16 @@ begin
 
   cw := Self.CurrentFont.cw;
   vw := 0;
-  l := Length(vText);
-  for i := 1 to l do
-    vw := vw + cw[ord(vText[i])];
+  lines := Split(vText, sLineBreak, False);
+  for i := 0 to Length(lines) - 1 do
+  begin
+    l := Length(lines[i]);
+    vw1 := 0;
+    for j := 1 to l do
+      vw1 := vw1 + cw[ord(lines[i][j])];
+    if vw1 > vw then
+      vw := vw1;
+  end;
 
   Result := vw*Self.FontSize/1000;
 end;
