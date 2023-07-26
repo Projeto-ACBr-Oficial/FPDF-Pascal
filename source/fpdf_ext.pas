@@ -1758,7 +1758,7 @@ var
   NumLines: integer;
 begin
   NumLines := GetNumLines(AText, AWidth, AIndent);
-  Result := RoundTo((NumLines * FontSize) + IfThen(NumLines > 1, NumLines * ALineSpacing), -2);
+  Result := RoundTo((NumLines * FontSize) + IfThen(NumLines > 1, (NumLines - 1) * ALineSpacing), -2);
   Result := Result + 0.5;
 end;
 
