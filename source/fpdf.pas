@@ -3610,7 +3610,7 @@ begin
   Bytes(Result)[1]:= Bytes(Value)[0];
 end;
 
-function Split(const AString: string; const ADelimiter: string = ' '): TStringArray;
+function Split(const AString: string; const ADelimiter: string): TStringArray;
 var
   p1, p2, i: Integer;
 begin
@@ -3625,7 +3625,7 @@ begin
     Inc(i);
     SetLength(Result, i);
     Result[i-1] := TrimLeft(copy(AString, p1, (p2-p1)));
-    p1 := p2+1;
+    p1 := p2 + Length(ADelimiter);
     p2 := PosEx(ADelimiter, AString + ADelimiter, p1);
   end;
 end;
