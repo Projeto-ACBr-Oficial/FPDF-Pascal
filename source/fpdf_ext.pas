@@ -1516,9 +1516,9 @@ function TFPDFExt.TextBox(x, y, w, h: double; const AText: string; const vAlign,
   hAlign: char; ABorder, AWordWrap, AScale: boolean; ALineSpacing: double): double;
 var
   Text: string;
-  OldY, IncY, OldFontSize: double;
+  IncY, OldFontSize: double;
   AltText: double;
-  x1, y1, Comp, MaxHeight, NewSize: double;
+  x1, y1, Comp, MaxHeight: double;
   N, I: integer;
   Lines: TStringArray;
   Line: string;
@@ -1526,7 +1526,6 @@ var
 begin
   MaxHeight := h;
   Text := AText;
-  OldY := y;
   OldFontSize := Self.FontSizePt;
   Result := y;
   Indent := 0;
@@ -1602,11 +1601,11 @@ begin
     if not AWordWrap and (Self.FontSizePt <> OldFontSize) then
       Self.SetFont(Self.FontFamily, Self.FontStyle, OldFontSize);
 
-    if Indent > 0 then
-    begin
-      x1 := x1 - Indent;
-      Indent := 0;
-    end;
+//    if Indent > 0 then
+//    begin
+//      x1 := x1 - Indent;
+//      Indent := 0;
+//    end;
 
     y1 := y1 + IncY + ALineSpacing;
     if ((MaxHeight > 0) and (y1 > (y + (MaxHeight)))) then
