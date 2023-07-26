@@ -72,9 +72,11 @@ begin
       'This text is short enough.' + sLineBreak +
       'This text is way too long. This text is way too long. This text is way too long. This text is way too long.';
     pdf.SetFont('Arial', '', 16);
-    y := y + pdf.TextBox(x, y, 140, h, Text, 'T', 'L', True, False);
-    y := y + pdf.TextBox(x, y, 140, h, Text, 'C', 'C', True, False, True);
-    y := y + pdf.TextBox(x, y, 140, h, Text, 'B', 'R', True, False, True);
+    pdf.TextBox(x, y, 140, h, Text, 'T', 'L', True, False);
+    y := y + h;
+    pdf.TextBox(x, y, 140, h, Text, 'C', 'C', True, False, True);
+    y := y + h;
+    pdf.TextBox(x, y, 140, h, Text, 'B', 'R', True, False, True);
 
 
     // ######################################

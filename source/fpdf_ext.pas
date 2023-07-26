@@ -1535,9 +1535,9 @@ begin
   if ABorder then
     Self.RoundedRect(x, y, w, h, 0.8, '', 'D');
   IncY := Self.FontSize;
-  if AWordWrap then
+  if AWordWrap and (Text <> '') then
   begin
-    while AScale and (GetStringHeight(Text, w, ALineSpacing, Indent) >= MaxHeight) do
+    while AScale and (GetStringHeight(Text, w, ALineSpacing, Indent) > MaxHeight) do
     begin
       if Self.FontSizePt > 8 then
         Self.SetFont(Self.FontFamily, Self.FontStyle, Self.FontSizePt - 0.5)
@@ -1612,7 +1612,7 @@ begin
       break;
   end;
   Self.SetFont(Self.FontFamily, Self.FontStyle, OldFontSize);
-  Result := h;
+  Result := (y1 - y) - IncY - ALineSpacing;
 end;
 
 procedure TFPDFExt.PutLink(const AURL, AText: String);
