@@ -836,7 +836,7 @@ begin
   if UpperCase(ATimeZone) <> 'Z' then
   begin
     Err := (Length(ATimeZone) <> 6) or
-           ((ATimeZone[1] = '-') or (ATimeZone[1] = '+')) or
+           (not ((ATimeZone[1] = '-') or (ATimeZone[1] = '+'))) or
            (not (ATimeZone[4] = ':'));
 
     if not Err then
