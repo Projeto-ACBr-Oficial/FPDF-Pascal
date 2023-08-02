@@ -89,7 +89,7 @@ begin
     pdf.WriteHTML('<u><b>Horizontal and vertical alignment</b></u>');
 
     pdf.SetFont('Arial', '', 12);
-    pdf.SetDrawColor(TFPDFColor.cRed);
+    pdf.SetDrawColor(cRed);
     pdf.SetLineWidth(0.3);
 
     x := 10;
@@ -128,7 +128,7 @@ begin
     y := y + 35;
 
     pdf.SetFont('Arial', 'B', 14);
-    pdf.SetDrawColor(TFPDFColor.cBlue);
+    pdf.SetDrawColor(cBlue);
     pdf.SetLineWidth(0.3);
     pdf.SetXY(x, y);
     pdf.WriteHTML('<u><b>Line spacing</b></u>');
