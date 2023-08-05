@@ -1,0 +1,22 @@
+program demo_fpdfreport;
+
+uses
+  Classes,
+  SysUtils,
+  fpdf,
+  fpdf_ext,
+  fpdf_report,
+  report1 in 'report1.pas';
+var
+  Engine: TFPDFEngine;
+begin
+  Engine := TFPDFEngine.Create(TReport1.Create);
+  try
+    Engine.DoublePass := True;
+    Engine.Compressed := True;
+    Engine.SaveToFile(ExtractFilePath(ParamStr(0)) + PathDelim + 'report1.pdf');
+  finally
+    Engine.Free;
+  end;
+end.
+
