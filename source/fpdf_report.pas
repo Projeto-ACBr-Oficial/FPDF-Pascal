@@ -31,8 +31,11 @@ unit fpdf_report;
 interface
 
 uses
-  Classes, SysUtils, Math,
-  System.Generics.Collections,
+  Classes,
+  SysUtils,
+  Contnrs,
+  Types,
+  Math,
 
   fpdf,
   fpdf_ext
@@ -58,11 +61,9 @@ type
 
   TFPDFBandTypeArray = array of TFPDFBandType;
 
-  TFPDFPageObjectList = class(TObjectList<TFPDFPage>);
+  TFPDFPageList = class;
 
-  TFPDFBandList = class(TList<TFPDFBand>);
-
-  TFPDFBandObjectList = class(TObjectList<TFPDFBand>);
+  TFPDFBandList = class;
 
   TFPDFReportOptions = class;
 
@@ -95,13 +96,13 @@ type
 
   TFPDFReport = class
   strict private
-    FPages: TFPDFPageObjectList;
+    FPages: TFPDFPageList;
     FOptions: TFPDFReportOptions;
     FDefaultPageMargins: TFPDFMargins;
     FDefaultFontFamily: string;
     procedure CheckHasPage;
   private
-    property Pages: TFPDFPageObjectList read FPages;
+    property Pages: TFPDFPageList read FPages;
     property DefaultFontFamily: string read FDefaultFontFamily;
   private
     procedure DoReportStart(Args: TFPDFReportEventArgs);
@@ -147,7 +148,6 @@ type
     procedure CalculateTotalPages;
     function IsAnyOfTypes(ABand: TFPDFBand; ABandTypes: TFPDFBandTypeArray): boolean;
     function GetBands(APage: TFPDFPage; ABandTypes: TFPDFBandTypeArray): TFPDFBandArray;
-    function IsMiddleBand(ABand: TFPDFBand): boolean;
     function IsMiddleOrReportFooterBand(ABand: TFPDFBand): boolean;
     function IsMarginBand(ABand: TFPDFBand): boolean;
     function OffsetEnabled(ABand: TFPDFBand): boolean;
@@ -171,6 +171,7 @@ type
     procedure DrawBand(APage: TFPDFPage; ABand: TFPDFBand);
   strict private
     procedure NotifyReportStart;
+    procedure NotifyReportEnd;
   private
     property PDF: TFPDFExt2 read FPDF;
     property FinalPass: boolean read FFinalPass write FFinalPass;
@@ -187,7 +188,7 @@ type
 
   TFPDFPage = class
   strict private
-    FBands: TFPDFBandObjectList;
+    FBands: TFPDFBandList;
     FOrientation: TFPDFOrientation;
     FPageUnit: TFPDFUnit;
     FPageHeight: double;
@@ -208,7 +209,7 @@ type
     property DefLeftMargin: double read FDefLeftMargin write FDefLeftMargin;
     property DefRightMargin: double read FDefRightMargin write FDefRightMargin;
   private
-    property Bands: TFPDFBandObjectList read FBands;
+    property Bands: TFPDFBandList read FBands;
   public
     constructor Create(AOrientation: TFPDFOrientation = poPortrait;
       APageUnit: TFPDFUnit = puMM; APageFormat: TFPDFPageFormat = pfA4); overload;
@@ -327,6 +328,40 @@ type
     property Height: double read FHeight write FHeight;
     property Width: double read FWidth write FWidth;
     property Visible: boolean read FVisible write FVisible;
+  end;
+
+  TFPDFPageList = class
+  strict private
+    FInternalList: TObjectList;
+  protected
+    function GetItem(Index: Integer): TFPDFPage; inline;
+    procedure SetItem(Index: Integer; Value: TFPDFPage); inline;
+  public
+    constructor Create; overload;
+    constructor Create(AOwnsObjects: Boolean); overload;
+    destructor Destroy; override;
+    function Add(Value: TFPDFPage): Integer; inline;
+    function Count: Integer;
+    property Objects[Index: Integer]: TFPDFPage read GetItem write SetItem; default;
+  end;
+
+  TFPDFBandList = class
+  strict private
+    FInternalList: TObjectList;
+  protected
+    function GetItem(Index: Integer): TFPDFBand; inline;
+    procedure SetItem(Index: Integer; Value: TFPDFBand); inline;
+  public
+    constructor Create; overload;
+    constructor Create(AOwnsObjects: Boolean); overload;
+    destructor Destroy; override;
+    function Add(Value: TFPDFBand): Integer; inline;
+    procedure Clear; inline;
+    function Count: Integer;
+    function Contains(const Value: TFPDFBand): Boolean; inline;
+    function IndexOf(const Value: TFPDFBand): Integer; inline;
+    function Remove(const Value: TFPDFBand): Integer; inline;
+    property Objects[Index: Integer]: TFPDFBand read GetItem write SetItem; default;
   end;
 
   TFPDFExt2 = class(TFPDFExt)
@@ -615,7 +650,7 @@ end;
 
 constructor TFPDFReport.Create;
 begin
-  FPages := TFPDFPageObjectList.Create;
+  FPages := TFPDFPageList.Create;
   FOptions := TFPDFReportOptions.Create;
 end;
 
@@ -670,9 +705,13 @@ end;
 { TFPDFEngine }
 
 procedure TFPDFEngine.CalculateBandDimensions(APage: TFPDFPage);
+var
+  Band: TFPDFBand;
+  I: Integer;
 begin
-  for var Band in APage.Bands do
+  for I := 0 to APage.Bands.Count - 1 do
   begin
+    Band := APage.Bands[I];
     if IsMarginBand(Band) then
     begin
       case Band.BandType of
@@ -697,14 +736,19 @@ end;
 procedure TFPDFEngine.CalculatePageMargins(APage: TFPDFPage);
 var
   LeftMargin, TopMargin, RightMargin, BottomMargin: double;
+  Bands: TFPDFBandArray;
+  Band: TFPDFBand;
+  I: Integer;
 begin
   LeftMargin := APage.DefLeftMargin;
   TopMargin := APage.DefTopMargin;
   RightMargin := APage.DefRightMargin;
   BottomMargin := APage.DefBottomMargin;
 
-  for var Band in GetBands(APage, cMarginBands) do
+  Bands := GetBands(APage, cMarginBands);
+  for I := 0 to Length(Bands) - 1 do
   begin
+    Band := Bands[I];
     if not Band.Visible then
       Continue;
     case Band.BandType of
@@ -754,7 +798,7 @@ begin
   inherited Create;
   FReport := AReport;
   FOwnsReport := AOwnsReport;
-  FActiveMiddleBands := TFPDFBandList.Create;
+  FActiveMiddleBands := TFPDFBandList.Create(False);
   FCompressed := True;
   FDoublePass := False;
   FFinalPass := True;
@@ -863,9 +907,15 @@ begin
 end;
 
 procedure TFPDFEngine.DrawBands(APage: TFPDFPage; ABandTypes: TFPDFBandTypeArray);
+var
+  Bands: TFPDFBandArray;
+  Band: TFPDFBand;
+  I: Integer;
 begin
-  for var Band in GetBands(APage, ABandTypes) do
+  Bands := GetBands(APage, ABandTypes);
+  for I := 0 to Length(Bands) - 1  do
   begin
+    Band := Bands[I];
     DrawBand(APage, Band);
     if FBreakPage then
     begin
@@ -966,26 +1016,36 @@ begin
 end;
 
 procedure TFPDFEngine.DrawReport;
+var
+  Page: TFPDFPage;
+  I: Integer;
 begin
   NotifyReportStart;
-
-  for var Page in FReport.Pages do
+  for I := 0 to FReport.Pages.Count - 1 do
   begin
+    Page := FReport.Pages[I];
     InitBands(Page);
     DrawPage(Page);
   end;
+  NotifyReportEnd;
 end;
 
 function TFPDFEngine.GetBands(APage: TFPDFPage;
   ABandTypes: TFPDFBandTypeArray): TFPDFBandArray;
+var
+  Band: TFPDFBand;
+  I: Integer;
 begin
   SetLength(Result, 0);
-  for var Band in APage.Bands do
+  for I := 0 to APage.Bands.Count - 1 do
+  begin
+    Band := APage.Bands[I];
     if IsAnyOfTypes(Band, ABandTypes) then
     begin
       SetLength(Result, Length(Result) + 1);
       Result[Length(Result) - 1] := Band;
     end;
+  end;
 end;
 
 function TFPDFEngine.GetCurrentPage: integer;
@@ -1006,10 +1066,15 @@ end;
 procedure TFPDFEngine.InitBands(APage: TFPDFPage;
   ABandTypes: TFPDFBandTypeArray);
 var
+  Bands: TFPDFBandArray;
+  Band: TFPDFBand;
+  I: Integer;
   Args: TFPDFBandInitArgs;
 begin
-  for var Band in GetBands(APage, ABandTypes) do
+  Bands := GetBands(APage, ABandTypes);
+  for I := 0 to Length(Bands) - 1 do
   begin
+    Band := Bands[I];
     Args := TFPDFBandInitArgs.Create(Self, APage, Band);
     try
       Band.DoInit(Args);
@@ -1047,14 +1112,21 @@ begin
   Result := IsAnyOfTypes(ABand, cMarginBands);
 end;
 
-function TFPDFEngine.IsMiddleBand(ABand: TFPDFBand): boolean;
-begin
-  Result := IsAnyOfTypes(ABand, cMiddleBands);
-end;
-
 function TFPDFEngine.IsMiddleOrReportFooterBand(ABand: TFPDFBand): boolean;
 begin
   Result := IsAnyOfTypes(ABand, cMiddleBands) or (ABand.BandType = btReportFooter);
+end;
+
+procedure TFPDFEngine.NotifyReportEnd;
+var
+  Args: TFPDFReportEventArgs;
+begin
+  Args := TFPDFReportEventArgs.Create(Self);
+  try
+    FReport.DoReportEnd(Args);
+  finally
+    Args.Free;
+  end;
 end;
 
 procedure TFPDFEngine.NotifyReportStart;
@@ -1158,7 +1230,7 @@ begin
     FPageWidth := APageSize.w;
   end;
 
-  FBands := TFPDFBandObjectList.Create;
+  FBands := TFPDFBandList.Create;
 end;
 
 constructor TFPDFPage.Create(AOrientation: TFPDFOrientation;
@@ -1902,6 +1974,111 @@ end;
 procedure TFPDFBandInitArgs.SetWidth(const Value: double);
 begin
   Band.Width := Value;
+end;
+
+{ TFPDFPageList }
+
+function TFPDFPageList.Add(Value: TFPDFPage): Integer;
+begin
+  Result := FInternalList.Add(Value);
+end;
+
+constructor TFPDFPageList.Create;
+begin
+  Create(True);
+end;
+
+constructor TFPDFPageList.Create(AOwnsObjects: Boolean);
+begin
+  FInternalList := TObjectList.Create(AOwnsObjects);
+end;
+
+destructor TFPDFPageList.Destroy;
+begin
+  FInternalList.Free;
+  inherited;
+end;
+
+function TFPDFPageList.GetItem(Index: Integer): TFPDFPage;
+begin
+  Result := TFPDFPage(FInternalList[Index]);
+end;
+
+procedure TFPDFPageList.SetItem(Index: Integer; Value: TFPDFPage);
+begin
+  FInternalList.Insert(Index, Value)
+end;
+
+function TFPDFPageList.Count: Integer;
+begin
+  Result := FInternalList.Count;
+end;
+
+{ TFPDFBandList }
+
+constructor TFPDFBandList.Create;
+begin
+  Create(True);
+end;
+
+constructor TFPDFBandList.Create(AOwnsObjects: Boolean);
+begin
+  FInternalList := TObjectList.Create(AOwnsObjects);
+end;
+
+destructor TFPDFBandList.Destroy;
+begin
+  FInternalList.Free;
+  inherited;
+end;
+
+function TFPDFBandList.Add(Value: TFPDFBand): Integer;
+begin
+  Result := FInternalList.Add(Value);
+end;
+
+procedure TFPDFBandList.Clear;
+var
+  I: Integer;
+  Obj: TObject;
+begin
+  for I := FInternalList.Count - 1 downto 0 do
+  begin
+    Obj := FInternalList[I];
+    FInternalList.Delete(I);
+    if FInternalList.OwnsObjects then
+      Obj.Free;
+  end;
+end;
+
+function TFPDFBandList.Contains(const Value: TFPDFBand): Boolean;
+begin
+  Result := IndexOf(Value) >= 0;
+end;
+
+function TFPDFBandList.Count: Integer;
+begin
+  Result := FInternalList.Count;
+end;
+
+function TFPDFBandList.GetItem(Index: Integer): TFPDFBand;
+begin
+  Result := TFPDFBand(FInternalList[Index]);
+end;
+
+function TFPDFBandList.IndexOf(const Value: TFPDFBand): Integer;
+begin
+  Result := FInternalList.IndexOf(Value);
+end;
+
+function TFPDFBandList.Remove(const Value: TFPDFBand): Integer;
+begin
+  Result := FInternalList.Remove(Value);
+end;
+
+procedure TFPDFBandList.SetItem(Index: Integer; Value: TFPDFBand);
+begin
+  FInternalList.Insert(Index, Value)
 end;
 
 end.
