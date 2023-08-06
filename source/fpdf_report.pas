@@ -958,6 +958,7 @@ begin
           UsedSpace := PDFWrapper.HighestY - PreviousY
         else
           UsedSpace := ABand.Height;
+
         FFreeSpace := FFreeSpace - UsedSpace;
         if FReport.HasEndlessPage then
           FEndlessHeight := FEndlessHeight + UsedSpace;
@@ -1256,7 +1257,7 @@ begin
   if FFinalPass and FReport.HasEndlessPage then
     APage.PageHeight := FEndlessHeight;
 
-  if APage.PageWidth > APage.PageHeight then
+  if APage.Orientation = poLandscape then
   begin
     LPageSize.h := APage.PageWidth;
     LPageSize.w := APage.PageHeight;
@@ -1303,25 +1304,15 @@ constructor TFPDFPage.Create(AOrientation: TFPDFOrientation;
 begin
   FOrientation := AOrientation;
   FPageUnit := APageUnit;
-
-  if FOrientation = poPortrait then
-  begin
-    FPageHeight := APageHeight;
-    FPageWidth := APageWidth;
-  end
-  else
-  begin
-    FPageHeight := APageWidth;
-    FPageWidth := APageHeight;
-  end;
-
+  FPageHeight := APageHeight;
+  FPageWidth := APageWidth;
   FBands := TFPDFBandList.Create;
 end;
 
 constructor TFPDFPage.Create(AOrientation: TFPDFOrientation;
   APageUnit: TFPDFUnit; APageSize: TFPDFPageSize);
 begin
-  if FOrientation = poLandscape then
+  if (AOrientation = poLandscape) and (APageSize.h > APageSize.w) then
     Create(AOrientation, APageUnit, APageSize.h, APageSize.w)
   else
     Create(AOrientation, APageUnit, APageSize.w, APageSize.h);
@@ -1454,6 +1445,7 @@ procedure TFPDFWrapper.DashedLine(vX1, vY1, vX2, vY2, ADashWidth: double);
 begin
   ApplyOffset(vX1, vY1);
   ApplyOffset(vX2, vY2);
+
   FPDF.DashedLine(vX1, vY1, vX2, vY2, ADashWidth);
 end;
 
@@ -1708,9 +1700,10 @@ end;
 function TFPDFWrapper.TextBox(x, y, w, h: Double): Double;
 begin
   ApplyOffset(x, y);
-  ApplyHighestXY(x + w, y + h);
-
   Result := FPDF.TextBox(x, y, w, h, '', 'T', 'L');
+  if Result > h then
+    h := Result;
+  ApplyHighestXY(x + w, y + h);
 end;
 
 function TFPDFWrapper.TextBox(x, y, w, h: Double; const AText: string;
@@ -1719,10 +1712,11 @@ function TFPDFWrapper.TextBox(x, y, w, h: Double; const AText: string;
   vLineSpacing: double): Double;
 begin
   ApplyOffset(x, y);
-  ApplyHighestXY(x + w, y + h);
-
   Result := FPDF.TextBox(x, y, w, h, AText, vAlign, hAlign, border > 0,
     not force, force, vLineSpacing);
+  if Result > h then
+    h := Result;
+  ApplyHighestXY(x + w, y + h);
 end;
 
 function TFPDFWrapper.TextBox(x, y, w, h: double; const AText: string;
@@ -1730,10 +1724,11 @@ function TFPDFWrapper.TextBox(x, y, w, h: double; const AText: string;
   ALineSpacing: double): double;
 begin
   ApplyOffset(x, y);
-  ApplyHighestXY(x + w, y + h);
-
   Result := FPDF.TextBox(x, y, w, h, AText, vAlign, hAlign, ABorder, AWordWrap,
     AScale, ALineSpacing);
+  if Result > h then
+    h := Result;
+  ApplyHighestXY(x + w, y + h);
 end;
 
 function TFPDFWrapper.WordWrap(var AText: string; AMaxWidth,
