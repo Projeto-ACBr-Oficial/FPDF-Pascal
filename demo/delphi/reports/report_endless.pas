@@ -1,13 +1,15 @@
-unit report1;
+unit report_endless;
 
 interface
 
 uses
   Classes, SysUtils,
+  fpdf,
+  fpdf_ext,
   fpdf_report;
 
 type
-  TReport1 = class(TFPDFReport)
+  TReportEndlessHeight = class(TFPDFReport)
   strict private
     FCustomer: integer;
     FProduct: integer;
@@ -22,8 +24,6 @@ type
     procedure DrawCustomers(Args: TFPDFBandDrawArgs);
     procedure DrawProducts(Args: TFPDFBandDrawArgs);
     procedure DrawData(Args: TFPDFBandDrawArgs);
-    procedure DrawFillEmptySpace(Args: TFPDFBandDrawArgs);
-    procedure DrawOverlay(Args: TFPDFBandDrawArgs);
   protected
     procedure OnStartReport(Args: TFPDFReportEventArgs); override;
   public
@@ -32,14 +32,17 @@ type
 
 implementation
 
-{ TReport1 }
+{ TReportEndlessHeight }
 
-constructor TReport1.Create;
+constructor TReportEndlessHeight.Create;
+var
+  Page: TFPDFPage;
 begin
   inherited;
   EngineOptions.DoublePass := True;
-  SetMargins(10, 13.5);
-  AddPage;
+  SetMargins(10, 10);
+  Page := AddPage(poPortrait, puMM, 100, 100);
+  Page.EndlessHeight := True;
 
   AddBand(btTopMargin, 10, DrawTopMargin);
   AddBand(btBottomMargin, 10, DrawBottomMargin);
@@ -50,11 +53,9 @@ begin
   AddBand(btData, 10, DrawCustomers);
   AddBand(btData, 10, DrawData);
   AddBand(btData, 10, DrawProducts);
-  AddBand(btData, 10, DrawFillEmptySpace);
-  AddBand(btOverlay, 10, DrawOverlay);
 end;
 
-procedure TReport1.DrawReportFooter(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawReportFooter(Args: TFPDFBandDrawArgs);
 begin
   Args.PDF.SetFillColor(128, 128, 247);
   Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');
@@ -64,7 +65,7 @@ begin
     'Report Footer', 'C', 'L', False);
 end;
 
-procedure TReport1.DrawReportHeader(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawReportHeader(Args: TFPDFBandDrawArgs);
 begin
   Args.PDF.SetFillColor(128, 128, 247);
   Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');
@@ -74,7 +75,7 @@ begin
     'Report Header', 'C', 'L', False);
 end;
 
-procedure TReport1.DrawTopMargin(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawTopMargin(Args: TFPDFBandDrawArgs);
 begin
   Args.PDF.SetFillColor(189, 224, 219);
   Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');
@@ -88,7 +89,7 @@ begin
     Format('Page %d of %d', [Args.CurrentPage, Args.TotalPages]), 'C', 'R', False);
 end;
 
-procedure TReport1.OnStartReport(Args: TFPDFReportEventArgs);
+procedure TReportEndlessHeight.OnStartReport(Args: TFPDFReportEventArgs);
 begin
   // Initializing data
   FCustomer := 0;
@@ -96,7 +97,7 @@ begin
   FIndent := 5;
 end;
 
-procedure TReport1.DrawPageHeader(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawPageHeader(Args: TFPDFBandDrawArgs);
 begin
   Args.PDF.SetFillColor(245, 245, 141);
   Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');
@@ -106,7 +107,7 @@ begin
     'Page Header', 'C', 'L', False);
 end;
 
-procedure TReport1.DrawProducts(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawProducts(Args: TFPDFBandDrawArgs);
 begin
   Inc(FProduct);
 
@@ -120,7 +121,7 @@ begin
   Args.DrawAgain := FProduct < 20;
 end;
 
-procedure TReport1.DrawData(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawData(Args: TFPDFBandDrawArgs);
 begin
   Args.PDF.SetFillColor(222, 177, 177);
   Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');
@@ -130,41 +131,7 @@ begin
     'Data Band', 'C', 'L', False);
 end;
 
-procedure TReport1.DrawFillEmptySpace(Args: TFPDFBandDrawArgs);
-begin
-  Args.Band.Height := Args.FreeSpace - Args.ReservedSpace;
-  Args.PDF.SetFillColor(250, 250, 250);
-  Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');
-
-  Args.PDF.SetFont('Arial', '', 14);
-  Args.PDF.TextBox(0, 0, Args.Band.Width, Args.Band.Height,
-    'Fill Empty Space', 'C', 'C', False);
-end;
-
-procedure TReport1.DrawOverlay(Args: TFPDFBandDrawArgs);
-var
-  PreviousTextColor: string;
-begin
-  PreviousTextColor := Args.PDF.TextColor;
-  try
-    Args.PDF.SetTextColor(200, 200, 200);
-    Args.PDF.SetFont('Arial', 'B', 48);
-    Args.PDF.Rotate(45, Args.PageWidth / 2, Args.PageHeight / 2);
-    try
-      Args.PDF.TextBox(
-        0, (Args.PageHeight / 2) - 10,
-        Args.PageWidth, 20,
-        'OVERLAY', 'C', 'C', False
-      );
-    finally
-      Args.PDF.Rotate(0, Args.PageWidth / 2, Args.PageHeight / 2);
-    end;
-  finally
-    Args.PDF.TextColor := PreviousTextColor;
-  end;
-end;
-
-procedure TReport1.DrawBottomMargin(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawBottomMargin(Args: TFPDFBandDrawArgs);
 begin
   Args.PDF.SetFillColor(189, 224, 219);
   Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');
@@ -178,7 +145,7 @@ begin
     Format('Page %d of %d', [Args.CurrentPage, Args.TotalPages]), 'C', 'R', False);
 end;
 
-procedure TReport1.DrawCustomers(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawCustomers(Args: TFPDFBandDrawArgs);
 begin
   Inc(FCustomer);
 
@@ -192,7 +159,7 @@ begin
   Args.DrawAgain := FCustomer < 10;
 end;
 
-procedure TReport1.DrawPageFooter(Args: TFPDFBandDrawArgs);
+procedure TReportEndlessHeight.DrawPageFooter(Args: TFPDFBandDrawArgs);
 begin
   Args.PDF.SetFillColor(245, 245, 141);
   Args.PDF.Rect(0, 0, Args.Band.Width, Args.Band.Height, 'DF');

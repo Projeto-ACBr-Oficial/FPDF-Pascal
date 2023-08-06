@@ -71,6 +71,8 @@ type
 
   TFPDFReportOptions = class;
 
+  TFPDFEngineOptions = class;
+
   TFPDFEngineEventArgs = class;
 
   TFPDFReportEventArgs = class;
@@ -102,10 +104,12 @@ type
   strict private
     FPages: TFPDFPageList;
     FOptions: TFPDFReportOptions;
+    FEngineOptions: TFPDFEngineOptions;
     FDefaultPageMargins: TFPDFMargins;
     FDefaultFontFamily: string;
     procedure CheckHasPage;
   private
+    function HasEndlessPage: boolean;
     property Pages: TFPDFPageList read FPages;
     property DefaultFontFamily: string read FDefaultFontFamily;
   private
@@ -124,11 +128,14 @@ type
       APageUnit: TFPDFUnit = puMM; APageFormat: TFPDFPageFormat = pfA4): TFPDFPage; overload;
     function AddPage(AOrientation: TFPDFOrientation;
       APageUnit: TFPDFUnit; APageSize: TFPDFPageSize): TFPDFPage; overload;
-    procedure AddPage(APage: TFPDFPage); overload;
+    function AddPage(AOrientation: TFPDFOrientation;
+      APageUnit: TFPDFUnit; APageWidth, APageHeight: double): TFPDFPage; overload;
+    procedure AddPage(APage: TFPDFPage; ADefaultMargins: boolean = False); overload;
     procedure AddBand(ABand: TFPDFBand); overload;
     function AddBand(ABandType: TFPDFBandType; ABandHeight: double;
       ADrawEvent: TFPDFBandDrawEvent): TFPDFBand; overload;
     property Options: TFPDFReportOptions read FOptions;
+    property EngineOptions: TFPDFEngineOptions read FEngineOptions;
   end;
 
   TFPDFReportOptions = class
@@ -136,6 +143,13 @@ type
     FAuthor: string;
   public
     property Author: string read FAuthor write FAuthor;
+  end;
+
+  TFPDFEngineOptions = class
+  private
+    FDoublePass: boolean;
+  public
+    property DoublePass: boolean read FDoublePass write FDoublePass;
   end;
 
   TFPDFEngine = class
@@ -149,8 +163,8 @@ type
     FFreeSpace: double;
     FActiveMiddleBands: TFPDFBandList;
     FTotalPages: integer;
+    FEndlessHeight: double;
     FBreakPage: boolean;
-    procedure CalculateTotalPages;
     function IsAnyOfTypes(ABand: TFPDFBand; ABandTypes: TFPDFBandTypeArray): boolean;
     function GetBands(APage: TFPDFPage; ABandTypes: TFPDFBandTypeArray): TFPDFBandArray;
     function IsMiddleOrReportFooterBand(ABand: TFPDFBand): boolean;
@@ -160,6 +174,7 @@ type
   strict private
     FInMargins: boolean;
   strict private
+    procedure RunFirstPass;
     procedure DrawReport;
     procedure StartNewPage(APage: TFPDFPage);
     procedure InitBands(APage: TFPDFPage); overload;
@@ -178,8 +193,10 @@ type
     procedure NotifyReportStart;
     procedure NotifyReportEnd;
   private
+    procedure SetDoublePass(const Value: boolean);
     property PDF: TFPDFExt2 read FPDF;
     property FinalPass: boolean read FFinalPass write FFinalPass;
+    property EndlessHeight: double read FEndlessHeight;
   public
     constructor Create(AReport: TFPDFReport; AOwnsReport: boolean = True);
     destructor Destroy; override;
@@ -188,7 +205,6 @@ type
     property CurrentPage: integer read GetCurrentPage;
     property TotalPages: integer read FTotalPages;
     property Compressed: Boolean read FCompressed write FCompressed;
-    property DoublePass: Boolean read FDoublePass write FDoublePass;
   end;
 
   TFPDFPage = class
@@ -198,6 +214,7 @@ type
     FPageUnit: TFPDFUnit;
     FPageHeight: double;
     FPageWidth: double;
+    FEndlessHeight: boolean;
     FVisible: boolean;
   strict private
     FDefTopMargin: double;
@@ -220,6 +237,8 @@ type
       APageUnit: TFPDFUnit = puMM; APageFormat: TFPDFPageFormat = pfA4); overload;
     constructor Create(AOrientation: TFPDFOrientation;
       APageUnit: TFPDFUnit; APageSize: TFPDFPageSize); overload;
+    constructor Create(AOrientation: TFPDFOrientation;
+      APageUnit: TFPDFUnit; APageWidth, APageHeight: double); overload;
     destructor Destroy; override;
     procedure AddBand(ABand: TFPDFBand); overload;
     function AddBand(ABandType: TFPDFBandType; ABandHeight: double;
@@ -228,6 +247,7 @@ type
     property PageUnit: TFPDFUnit read FPageUnit;
     property PageHeight: double read FPageHeight write FPageHeight;
     property PageWidth: double read FPageWidth write FPageWidth;
+    property EndlessHeight: boolean read FEndlessHeight write FEndlessHeight;
     property TopMargin: double read FCurTopMargin write FCurTopMargin;
     property BottomMargin: double read FCurBottomMargin write FCurBottomMargin;
     property LeftMargin: double read FCurLeftMargin write FCurLeftMargin;
@@ -619,38 +639,42 @@ begin
   Result := FPages[FPages.Count - 1].AddBand(ABandType, ABandHeight, ADrawEvent);
 end;
 
-procedure TFPDFReport.AddPage(APage: TFPDFPage);
+function TFPDFReport.AddPage(AOrientation: TFPDFOrientation;
+  APageUnit: TFPDFUnit; APageWidth, APageHeight: double): TFPDFPage;
+begin
+  Result := TFPDFPage.Create(AOrientation, APageUnit, APageWidth, APageHeight);
+  AddPage(Result, True);
+end;
+
+procedure TFPDFReport.AddPage(APage: TFPDFPage; ADefaultMargins: boolean);
 begin
   FPages.Add(APage);
+  if ADefaultMargins then
+  begin
+    APage.DefLeftMargin := FDefaultPageMargins.Left;
+    APage.DefTopMargin := FDefaultPageMargins.Top;
+    APage.DefRightMargin := FDefaultPageMargins.Right;
+    APage.DefBottomMargin := FDefaultPageMargins.Bottom;
+
+    APage.LeftMargin := FDefaultPageMargins.Left;
+    APage.TopMargin := FDefaultPageMargins.Top;
+    APage.RightMargin := FDefaultPageMargins.Right;
+    APage.BottomMargin := FDefaultPageMargins.Bottom;
+  end;
 end;
 
 function TFPDFReport.AddPage(AOrientation: TFPDFOrientation;
   APageUnit: TFPDFUnit; APageSize: TFPDFPageSize): TFPDFPage;
 begin
   Result := TFPDFPage.Create(AOrientation, APageUnit, APageSize);
-  AddPage(Result);
-
-  Result.DefLeftMargin := FDefaultPageMargins.Left;
-  Result.DefTopMargin := FDefaultPageMargins.Top;
-  Result.DefRightMargin := FDefaultPageMargins.Right;
-  Result.DefBottomMargin := FDefaultPageMargins.Bottom;
+  AddPage(Result, True);
 end;
 
 function TFPDFReport.AddPage(AOrientation: TFPDFOrientation;
   APageUnit: TFPDFUnit; APageFormat: TFPDFPageFormat): TFPDFPage;
 begin
   Result := TFPDFPage.Create(AOrientation, APageUnit, APageFormat);
-  AddPage(Result);
-
-  Result.DefLeftMargin := FDefaultPageMargins.Left;
-  Result.DefTopMargin := FDefaultPageMargins.Top;
-  Result.DefRightMargin := FDefaultPageMargins.Right;
-  Result.DefBottomMargin := FDefaultPageMargins.Bottom;
-
-  Result.LeftMargin := FDefaultPageMargins.Left;
-  Result.TopMargin := FDefaultPageMargins.Top;
-  Result.RightMargin := FDefaultPageMargins.Right;
-  Result.BottomMargin := FDefaultPageMargins.Bottom;
+  AddPage(Result, True);
 end;
 
 procedure TFPDFReport.CheckHasPage;
@@ -663,12 +687,14 @@ constructor TFPDFReport.Create;
 begin
   FPages := TFPDFPageList.Create;
   FOptions := TFPDFReportOptions.Create;
+  FEngineOptions := TFPDFEngineOptions.Create;
 end;
 
 destructor TFPDFReport.Destroy;
 begin
   FPages.Free;
   FOptions.Free;
+  FEngineOptions.Free;
   inherited;
 end;
 
@@ -680,6 +706,19 @@ end;
 procedure TFPDFReport.DoStartReport(Args: TFPDFReportEventArgs);
 begin
   OnStartReport(Args);
+end;
+
+function TFPDFReport.HasEndlessPage: boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to Pages.Count - 1 do
+    if Pages[I].EndlessHeight then
+    begin
+      Result := True;
+      Break;
+    end;
 end;
 
 procedure TFPDFReport.OnEndReport(Args: TFPDFReportEventArgs);
@@ -782,24 +821,27 @@ begin
   CalculateBandDimensions(APage);
 end;
 
-procedure TFPDFEngine.CalculateTotalPages;
+procedure TFPDFEngine.RunFirstPass;
 var
   Engine: TFPDFEngine;
 begin
   FTotalPages := 0;
-  if not FDoublePass then
-    Exit;
-  Engine := TFPDFEngine.Create(FReport, False);
-  try
-    Engine.DoublePass := False;
-    Engine.FinalPass := False;
-    Engine.DrawReport;
+  FEndlessHeight := 0;
+  if FDoublePass then
+  begin
+    Engine := TFPDFEngine.Create(FReport, False);
+    try
+      Engine.SetDoublePass(False);
+      Engine.DrawReport;
 
-    // current page
-    FTotalPages := Engine.PDF.page;
-  finally
-    Engine.Free;
+      // current page
+      FTotalPages := Engine.PDF.page;
+      FEndlessHeight := Engine.EndlessHeight;
+    finally
+      Engine.Free;
+    end;
   end;
+  FFinalPass := True;
 end;
 
 constructor TFPDFEngine.Create(AReport: TFPDFReport; AOwnsReport: boolean);
@@ -811,8 +853,8 @@ begin
   FOwnsReport := AOwnsReport;
   FActiveMiddleBands := TFPDFBandList.Create(False);
   FCompressed := True;
-  FDoublePass := False;
-  FFinalPass := True;
+  FDoublePass := AReport.EngineOptions.DoublePass or AReport.HasEndlessPage;
+  FFinalPass := False;
 
   if AReport.Pages.Count > 0 then
   begin
@@ -846,16 +888,27 @@ var
 begin
   if (ABand.BandType = btReportHeader) and (FPDF.page > 1) then
     Exit;
-  if IsMiddleOrReportFooterBand(ABand) and (not FActiveMiddleBands.Contains(ABand)
-    or (FFreeSpace <= 0)) then
-    Exit;
-  if not ABand.Visible then
-    Exit;
-  if IsMiddleOrReportFooterBand(ABand) and (FFreeSpace < ABand.Height) then
+
+  if IsMiddleOrReportFooterBand(ABand) and (FFreeSpace < ABand.Height) and
+    not FReport.HasEndlessPage then
   begin
     FBreakPage := True;
     Exit;
   end;
+
+//  if IsMiddleOrReportFooterBand(ABand) and (not FActiveMiddleBands.Contains(ABand)
+//    or (FFreeSpace <= 0)) then
+//    Exit;
+
+  if not ABand.Visible then
+    Exit;
+
+//  if IsMiddleOrReportFooterBand(ABand) and not FReport.HasEndlessPage and
+//    (FFreeSpace < ABand.Height) then
+//  begin
+//    FBreakPage := True;
+//    Exit;
+//  end;
 
   PreviousX := FPDF.GetX;
   PreviousY := FPDF.GetY;
@@ -906,6 +959,8 @@ begin
         else
           UsedSpace := ABand.Height;
         FFreeSpace := FFreeSpace - UsedSpace;
+        if FReport.HasEndlessPage then
+          FEndlessHeight := FEndlessHeight + UsedSpace;
         FPDF.SetXY(PreviousX, PreviousY + UsedSpace);
       end;
 
@@ -955,18 +1010,21 @@ var
   Bands: TFPDFBandArray;
   Band: TFPDFBand;
 begin
-  TotalHeight := 0;
-  Bands := GetBands(APage, cLastBands);
-  for I := 0 to Length(Bands) - 1 do
+  if not FReport.HasEndlessPage then
   begin
-    Band := Bands[I];
-    if not Band.Visible then
-      Continue;
-    TotalHeight := TotalHeight + Band.Height;
+    TotalHeight := 0;
+    Bands := GetBands(APage, cLastBands);
+    for I := 0 to Length(Bands) - 1 do
+    begin
+      Band := Bands[I];
+      if not Band.Visible then
+        Continue;
+      TotalHeight := TotalHeight + Band.Height;
+    end;
+    // Print on bottom of page
+    if TotalHeight > 0 then
+      FPDF.SetXY(APage.LeftMargin, APage.PageHeight - APage.BottomMargin - TotalHeight);
   end;
-  // Print on bottom of page
-  if TotalHeight > 0 then
-    FPDF.SetXY(APage.LeftMargin, APage.PageHeight - APage.BottomMargin - TotalHeight);
 
   for I := 0 to Length(cLastBands) - 1 do
   begin
@@ -1072,6 +1130,9 @@ begin
   FActiveMiddleBands.Clear;
   InitBands(APage, cFirstBands + cMiddleBands + cLastBands);
   InitBands(APage, [btReportFooter]);
+
+  if FReport.HasEndlessPage then
+    FEndlessHeight := FEndlessHeight + APage.TopMargin;// + APage.BottomMargin;
 end;
 
 procedure TFPDFEngine.InitBands(APage: TFPDFPage;
@@ -1171,10 +1232,16 @@ end;
 
 procedure TFPDFEngine.SaveToStream(AStream: TStream);
 begin
-  CalculateTotalPages;
+  RunFirstPass;
+
   FPDF.SetCompression(FCompressed);
   DrawReport;
   FPDF.SaveToStream(AStream);
+end;
+
+procedure TFPDFEngine.SetDoublePass(const Value: boolean);
+begin
+  FDoublePass := Value;
 end;
 
 procedure TFPDFEngine.StartNewPage(APage: TFPDFPage);
@@ -1185,6 +1252,9 @@ begin
 
   FPDF.SetMargins(APage.LeftMargin, APage.TopMargin, APage.RightMargin);
   FPDF.SetAutoPageBreak(False, APage.BottomMargin);
+
+  if FFinalPass and FReport.HasEndlessPage then
+    APage.PageHeight := FEndlessHeight;
 
   if APage.PageWidth > APage.PageHeight then
   begin
@@ -1208,7 +1278,10 @@ begin
 
   FPDF.SetXY(APage.LeftMargin, APage.TopMargin);
 
-  FFreeSpace := APage.PageHeight - APage.TopMargin - APage.BottomMargin;
+  if FReport.HasEndlessPage then
+    FFreeSpace := 1e+6
+  else
+    FFreeSpace := APage.PageHeight - APage.TopMargin - APage.BottomMargin;
 end;
 
 { TFPDFPage }
@@ -1226,23 +1299,32 @@ begin
 end;
 
 constructor TFPDFPage.Create(AOrientation: TFPDFOrientation;
-  APageUnit: TFPDFUnit; APageSize: TFPDFPageSize);
+  APageUnit: TFPDFUnit; APageWidth, APageHeight: double);
 begin
   FOrientation := AOrientation;
   FPageUnit := APageUnit;
 
-  if FOrientation = poLandscape then
+  if FOrientation = poPortrait then
   begin
-    FPageHeight := APageSize.w;
-    FPageWidth := APageSize.h;
+    FPageHeight := APageHeight;
+    FPageWidth := APageWidth;
   end
   else
   begin
-    FPageHeight := APageSize.h;
-    FPageWidth := APageSize.w;
+    FPageHeight := APageWidth;
+    FPageWidth := APageHeight;
   end;
 
   FBands := TFPDFBandList.Create;
+end;
+
+constructor TFPDFPage.Create(AOrientation: TFPDFOrientation;
+  APageUnit: TFPDFUnit; APageSize: TFPDFPageSize);
+begin
+  if FOrientation = poLandscape then
+    Create(AOrientation, APageUnit, APageSize.h, APageSize.w)
+  else
+    Create(AOrientation, APageUnit, APageSize.w, APageSize.h);
 end;
 
 constructor TFPDFPage.Create(AOrientation: TFPDFOrientation;

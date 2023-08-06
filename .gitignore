@@ -85,3 +85,4 @@ demo/lazarus/FPDFPascalTeste.pdf
 # Test generated files
 *.pdf
 /demo/delphi/*.skincfg
+/demo/delphi/reports/*.skincfg

@@ -12,7 +12,6 @@ var
 begin
   Engine := TFPDFEngine.Create(TReport1.Create);
   try
-    Engine.DoublePass := True;
     Engine.Compressed := True;
     Engine.SaveToFile(ExtractFilePath(ParamStr(0)) + PathDelim + 'report1.pdf');
   finally

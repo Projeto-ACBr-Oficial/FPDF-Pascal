@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{AE9ACC0E-6447-47A2-9939-284BC2E7FF49}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="demo_fpdfreport.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="demo_endless.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="demo_fpdfreport">
+        <MSBuild Projects="demo_fpdfreport.dproj"/>
+    </Target>
+    <Target Name="demo_fpdfreport:Clean">
+        <MSBuild Projects="demo_fpdfreport.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="demo_fpdfreport:Make">
+        <MSBuild Projects="demo_fpdfreport.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="demo_endless">
+        <MSBuild Projects="demo_endless.dproj"/>
+    </Target>
+    <Target Name="demo_endless:Clean">
+        <MSBuild Projects="demo_endless.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="demo_endless:Make">
+        <MSBuild Projects="demo_endless.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="demo_fpdfreport;demo_endless"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="demo_fpdfreport:Clean;demo_endless:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="demo_fpdfreport:Make;demo_endless:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
