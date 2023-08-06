@@ -28,6 +28,10 @@
 
 unit fpdf_report;
 
+// If you have DelphiZXingQRCode Unit on you LibPath
+// https://github.com/foxitsoftware/DelphiZXingQRCode
+{$DEFINE DelphiZXingQRCode}
+
 interface
 
 uses
@@ -105,24 +109,25 @@ type
     property Pages: TFPDFPageList read FPages;
     property DefaultFontFamily: string read FDefaultFontFamily;
   private
-    procedure DoReportStart(Args: TFPDFReportEventArgs);
-    procedure DoReportEnd(Args: TFPDFReportEventArgs);
+    procedure DoStartReport(Args: TFPDFReportEventArgs);
+    procedure DoEndReport(Args: TFPDFReportEventArgs);
   protected
-    procedure OnReportStart(Args: TFPDFReportEventArgs); virtual;
-    procedure OnReportEnd(Args: TFPDFReportEventArgs); virtual;
+    procedure OnStartReport(Args: TFPDFReportEventArgs); virtual;
+    procedure OnEndReport(Args: TFPDFReportEventArgs); virtual;
   public
     constructor Create; virtual;
     destructor Destroy; override;
   public
     procedure SetMargins(ALeft, ATop: double; ARight: double = -1; ABottom: double = -1);
     procedure SetFont(const AFontFamily: string);
-    procedure AddPage(AOrientation: TFPDFOrientation = poPortrait;
-      APageUnit: TFPDFUnit = puMM; APageFormat: TFPDFPageFormat = pfA4); overload;
-    procedure AddPage(AOrientation: TFPDFOrientation;
-      APageUnit: TFPDFUnit; APageSize: TFPDFPageSize); overload;
+    function AddPage(AOrientation: TFPDFOrientation = poPortrait;
+      APageUnit: TFPDFUnit = puMM; APageFormat: TFPDFPageFormat = pfA4): TFPDFPage; overload;
+    function AddPage(AOrientation: TFPDFOrientation;
+      APageUnit: TFPDFUnit; APageSize: TFPDFPageSize): TFPDFPage; overload;
     procedure AddPage(APage: TFPDFPage); overload;
     procedure AddBand(ABand: TFPDFBand); overload;
-    procedure AddBand(ABandType: TFPDFBandType; ABandHeight: double; ADrawEvent: TFPDFBandDrawEvent); overload;
+    function AddBand(ABandType: TFPDFBandType; ABandHeight: double;
+      ADrawEvent: TFPDFBandDrawEvent): TFPDFBand; overload;
     property Options: TFPDFReportOptions read FOptions;
   end;
 
@@ -217,7 +222,8 @@ type
       APageUnit: TFPDFUnit; APageSize: TFPDFPageSize); overload;
     destructor Destroy; override;
     procedure AddBand(ABand: TFPDFBand); overload;
-    procedure AddBand(ABandType: TFPDFBandType; ABandHeight: double; ADrawEvent: TFPDFBandDrawEvent); overload;
+    function AddBand(ABandType: TFPDFBandType; ABandHeight: double;
+      ADrawEvent: TFPDFBandDrawEvent): TFPDFBand; overload;
     property Orientation: TFPDFOrientation read FOrientation write FOrientation;
     property PageUnit: TFPDFUnit read FPageUnit;
     property PageHeight: double read FPageHeight write FPageHeight;
@@ -395,9 +401,13 @@ type
     procedure SetTextColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
     procedure SetTextColor(const Value: string); overload;
     procedure SetUnderline(fUnderline: Boolean = False);
+    procedure SetDash(ABlack, AWhite: double); overload;
+    procedure SetDash(AWidth: double); overload;
+    procedure SetLineWidth(vWidth: Double);
 
     function WordWrap(var AText: string; AMaxWidth: Double; AIndent: double = 0): integer;
     function GetNumLines(const AText: string; AWidth: Double; AIndent: double = 0): integer;
+    function GetStringWidth(const vText: String): Double;
     function GetStringHeight(const AText: string; AWidth: double;
       ALineSpacing: double = 0; AIndent: double = 0): double;
     procedure Text(vX, vY: Double; const vText: String);
@@ -414,8 +424,6 @@ type
       AScale: boolean = False; ALineSpacing: double = 0): double; overload;
 
     procedure Rotate(NewAngle: Double = 0; vX: Double = -1; vY: Double = -1);
-    procedure SetDash(ABlack, AWhite: double); overload;
-    procedure SetDash(AWidth: double); overload;
     procedure Line(vX1, vY1, vX2, vY2: Double);
     procedure Rect(vX, vY, vWidht, vHeight: Double; const vStyle: String = '');
     procedure DashedLine(vX1, vY1, vX2, vY2: Double; ADashWidth: double = 1);
@@ -536,9 +544,13 @@ type
     procedure SetTextColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
     procedure SetTextColor(const Value: string); overload;
     procedure SetUnderline(fUnderline: Boolean = False);
+    procedure SetDash(ABlack, AWhite: double); overload;
+    procedure SetDash(AWidth: double); overload;
+    procedure SetLineWidth(vWidth: Double);
 
     function WordWrap(var AText: string; AMaxWidth: Double; AIndent: double = 0): integer;
     function GetNumLines(const AText: string; AWidth: Double; AIndent: double = 0): integer;
+    function GetStringWidth(const vText: String): Double;
     function GetStringHeight(const AText: string; AWidth: double;
       ALineSpacing: double = 0; AIndent: double = 0): double;
     procedure Text(vX, vY: Double; const vText: String);
@@ -555,8 +567,6 @@ type
       AScale: boolean = False; ALineSpacing: double = 0): double; overload;
 
     procedure Rotate(NewAngle: Double = 0; vX: Double = -1; vY: Double = -1);
-    procedure SetDash(ABlack, AWhite: double); overload;
-    procedure SetDash(AWidth: double); overload;
     procedure Line(vX1, vY1, vX2, vY2: Double);
     procedure Rect(vX, vY, vWidht, vHeight: Double; const vStyle: String = '');
     procedure DashedLine(vX1, vY1, vX2, vY2: Double; ADashWidth: double = 1);
@@ -602,11 +612,11 @@ begin
   FPages[FPages.Count - 1].AddBand(ABand);
 end;
 
-procedure TFPDFReport.AddBand(ABandType: TFPDFBandType; ABandHeight: double;
-  ADrawEvent: TFPDFBandDrawEvent);
+function TFPDFReport.AddBand(ABandType: TFPDFBandType; ABandHeight: double;
+  ADrawEvent: TFPDFBandDrawEvent): TFPDFBand;
 begin
   CheckHasPage;
-  FPages[FPages.Count - 1].AddBand(ABandType, ABandHeight, ADrawEvent);
+  Result := FPages[FPages.Count - 1].AddBand(ABandType, ABandHeight, ADrawEvent);
 end;
 
 procedure TFPDFReport.AddPage(APage: TFPDFPage);
@@ -614,32 +624,33 @@ begin
   FPages.Add(APage);
 end;
 
-procedure TFPDFReport.AddPage(AOrientation: TFPDFOrientation;
-  APageUnit: TFPDFUnit; APageSize: TFPDFPageSize);
-var
-  Page: TFPDFPage;
+function TFPDFReport.AddPage(AOrientation: TFPDFOrientation;
+  APageUnit: TFPDFUnit; APageSize: TFPDFPageSize): TFPDFPage;
 begin
-  Page := TFPDFPage.Create(AOrientation, APageUnit, APageSize);
-  AddPage(Page);
+  Result := TFPDFPage.Create(AOrientation, APageUnit, APageSize);
+  AddPage(Result);
 
-  Page.DefLeftMargin := FDefaultPageMargins.Left;
-  Page.DefTopMargin := FDefaultPageMargins.Top;
-  Page.DefRightMargin := FDefaultPageMargins.Right;
-  Page.DefBottomMargin := FDefaultPageMargins.Bottom;
+  Result.DefLeftMargin := FDefaultPageMargins.Left;
+  Result.DefTopMargin := FDefaultPageMargins.Top;
+  Result.DefRightMargin := FDefaultPageMargins.Right;
+  Result.DefBottomMargin := FDefaultPageMargins.Bottom;
 end;
 
-procedure TFPDFReport.AddPage(AOrientation: TFPDFOrientation;
-  APageUnit: TFPDFUnit; APageFormat: TFPDFPageFormat);
-var
-  Page: TFPDFPage;
+function TFPDFReport.AddPage(AOrientation: TFPDFOrientation;
+  APageUnit: TFPDFUnit; APageFormat: TFPDFPageFormat): TFPDFPage;
 begin
-  Page := TFPDFPage.Create(AOrientation, APageUnit, APageFormat);
-  AddPage(Page);
+  Result := TFPDFPage.Create(AOrientation, APageUnit, APageFormat);
+  AddPage(Result);
 
-  Page.DefLeftMargin := FDefaultPageMargins.Left;
-  Page.DefTopMargin := FDefaultPageMargins.Top;
-  Page.DefRightMargin := FDefaultPageMargins.Right;
-  Page.DefBottomMargin := FDefaultPageMargins.Bottom;
+  Result.DefLeftMargin := FDefaultPageMargins.Left;
+  Result.DefTopMargin := FDefaultPageMargins.Top;
+  Result.DefRightMargin := FDefaultPageMargins.Right;
+  Result.DefBottomMargin := FDefaultPageMargins.Bottom;
+
+  Result.LeftMargin := FDefaultPageMargins.Left;
+  Result.TopMargin := FDefaultPageMargins.Top;
+  Result.RightMargin := FDefaultPageMargins.Right;
+  Result.BottomMargin := FDefaultPageMargins.Bottom;
 end;
 
 procedure TFPDFReport.CheckHasPage;
@@ -661,21 +672,21 @@ begin
   inherited;
 end;
 
-procedure TFPDFReport.DoReportEnd(Args: TFPDFReportEventArgs);
+procedure TFPDFReport.DoEndReport(Args: TFPDFReportEventArgs);
 begin
-  OnReportEnd(Args);
+  OnEndReport(Args);
 end;
 
-procedure TFPDFReport.DoReportStart(Args: TFPDFReportEventArgs);
+procedure TFPDFReport.DoStartReport(Args: TFPDFReportEventArgs);
 begin
-  OnReportStart(Args);
+  OnStartReport(Args);
 end;
 
-procedure TFPDFReport.OnReportEnd(Args: TFPDFReportEventArgs);
+procedure TFPDFReport.OnEndReport(Args: TFPDFReportEventArgs);
 begin
 end;
 
-procedure TFPDFReport.OnReportStart(Args: TFPDFReportEventArgs);
+procedure TFPDFReport.OnStartReport(Args: TFPDFReportEventArgs);
 begin
 end;
 
@@ -1123,7 +1134,7 @@ var
 begin
   Args := TFPDFReportEventArgs.Create(Self);
   try
-    FReport.DoReportEnd(Args);
+    FReport.DoEndReport(Args);
   finally
     Args.Free;
   end;
@@ -1135,7 +1146,7 @@ var
 begin
   Args := TFPDFReportEventArgs.Create(Self);
   try
-    FReport.DoReportStart(Args);
+    FReport.DoStartReport(Args);
   finally
     Args.Free;
   end;
@@ -1207,10 +1218,11 @@ begin
   FBands.Add(ABand);
 end;
 
-procedure TFPDFPage.AddBand(ABandType: TFPDFBandType; ABandHeight: double;
-  ADrawEvent: TFPDFBandDrawEvent);
+function TFPDFPage.AddBand(ABandType: TFPDFBandType; ABandHeight: double;
+  ADrawEvent: TFPDFBandDrawEvent): TFPDFBand;
 begin
-  AddBand(TFPDFAnonymousBand.Create(ABandType, ABandHeight, ADrawEvent));
+  Result := TFPDFAnonymousBand.Create(ABandType, ABandHeight, ADrawEvent);
+  AddBand(Result);
 end;
 
 constructor TFPDFPage.Create(AOrientation: TFPDFOrientation;
@@ -1409,6 +1421,11 @@ begin
   Result := FPDF.GetStringHeight(AText, AWidth, ALineSpacing, AIndent);
 end;
 
+function TFPDFWrapper.GetStringWidth(const vText: String): Double;
+begin
+  Result := FPDF.GetStringWidth(vText);
+end;
+
 function TFPDFWrapper.GetTextColor: string;
 begin
   Result := FPDF.TextColor;
@@ -1566,6 +1583,11 @@ end;
 procedure TFPDFWrapper.SetFont(ASize: Double; const AStyle: String);
 begin
   FPDF.SetFont(FPDF.CurrentFontFamily, AStyle, ASize);
+end;
+
+procedure TFPDFWrapper.SetLineWidth(vWidth: Double);
+begin
+  FPDF.SetLineWidth(vWidth);
 end;
 
 procedure TFPDFWrapper.SetTextColor(const Value: string);

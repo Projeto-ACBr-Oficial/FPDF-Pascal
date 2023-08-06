@@ -25,7 +25,7 @@ type
     procedure DrawFillEmptySpace(Args: TFPDFBandDrawArgs);
     procedure DrawOverlay(Args: TFPDFBandDrawArgs);
   protected
-    procedure OnReportStart(Args: TFPDFReportEventArgs); override;
+    procedure OnStartReport(Args: TFPDFReportEventArgs); override;
   public
     constructor Create; override;
   end;
@@ -87,7 +87,7 @@ begin
     Format('Page %d of %d', [Args.CurrentPage, Args.TotalPages]), 'C', 'R', False);
 end;
 
-procedure TReport1.OnReportStart(Args: TFPDFReportEventArgs);
+procedure TReport1.OnStartReport(Args: TFPDFReportEventArgs);
 begin
   // Initializing data
   FCustomer := 0;
