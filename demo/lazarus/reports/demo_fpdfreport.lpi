@@ -10,12 +10,13 @@
         <MainUnitHasScaledStatement Value="False"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
-      <Title Value="dashed_line_rect"/>
+      <Title Value="demo_fpdfreport"/>
       <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
       <XPManifest>
         <DpiAware Value="True"/>
       </XPManifest>
+      <Icon Value="0"/>
     </General>
     <BuildModes>
       <Item Name="Default" Default="True"/>
@@ -34,7 +35,11 @@
     </RequiredPackages>
     <Units>
       <Unit>
-        <Filename Value="dashed_line_rect.lpr"/>
+        <Filename Value="demo_fpdfreport.lpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="report1.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
@@ -43,11 +48,11 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="dashed_line_rect"/>
+      <Filename Value="demo_fpdfreport"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\source"/>
+      <OtherUnitFiles Value="..\..\..\source"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

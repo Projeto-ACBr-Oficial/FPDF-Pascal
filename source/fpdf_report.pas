@@ -28,6 +28,11 @@
 
 unit fpdf_report;
 
+{$ifdef fpc}
+  {$mode delphi}
+  {$H+}
+{$endif}
+
 // If you have DelphiZXingQRCode Unit on you LibPath
 // https://github.com/foxitsoftware/DelphiZXingQRCode
 {$DEFINE DelphiZXingQRCode}
