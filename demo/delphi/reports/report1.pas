@@ -8,11 +8,10 @@ uses
 
 type
   TReport1 = class(TFPDFReport)
-  strict private
+  private
     FCustomer: integer;
     FProduct: integer;
     FIndent: double;
-  private
     procedure DrawTopMargin(Args: TFPDFBandDrawArgs);
     procedure DrawBottomMargin(Args: TFPDFBandDrawArgs);
     procedure DrawReportHeader(Args: TFPDFBandDrawArgs);
