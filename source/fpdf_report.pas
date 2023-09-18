@@ -59,7 +59,7 @@ type
 
   TFPDFBandType = (btLeftMargin, btTopMargin, btRightMargin, btBottomMargin,
     btData, btReportHeader, btPageHeader, btReportFooter, btPageFooter,
-    btOverlay);
+    btWatermark, btOverlay);
 
   TFPDFBandArray = array of TFPDFBand;
 
@@ -147,7 +147,7 @@ type
 
   TFPDFEngineOptions = class
   private
-    FDoublePass: boolean;
+    FDoublePass: Boolean;
   public
     property DoublePass: boolean read FDoublePass write FDoublePass;
   end;
@@ -778,7 +778,7 @@ begin
     else
       Band.Width := APage.PageWidth - APage.LeftMargin - APage.RightMargin;
 
-    if Band.BandType = btOverlay then
+    if Band.BandType in [btWatermark, btOverlay] then
       Band.Height := APage.PageHeight - APage.TopMargin - APage.BottomMargin;
   end;
 end;
@@ -924,7 +924,7 @@ begin
     btBottomMargin:
       FPDF.SetXY(APage.DefLeftMargin, APage.PageHeight - APage.BottomMargin);
 
-    btOverlay:
+    btWatermark, btOverlay:
       FPDF.SetXY(APage.LeftMargin, APage.TopMargin);
   else
     //
@@ -1216,7 +1216,7 @@ end;
 
 function TFPDFEngine.OffsetEnabled(ABand: TFPDFBand): boolean;
 begin
-  Result := not (ABand.BandType = btOverlay);
+  Result := not (ABand.BandType in [btWatermark, btOverlay]);
 end;
 
 procedure TFPDFEngine.SaveToFile(const AFileName: String);
@@ -1269,6 +1269,8 @@ begin
   end;
 
   FPDF.AddPage(APage.Orientation, LPageSize, ro0);
+
+  DrawBands(APage, btWatermark);
 
   FInMargins := True;
   try
