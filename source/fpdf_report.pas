@@ -1843,56 +1843,58 @@ begin
   end;
 end;
 
-function TImageUtils.GetJPGSize(AStream: TStream; var wWidth,
-  wHeight: Word): boolean;
+function TImageUtils.GetJPGSize(AStream: TStream; var wWidth, wHeight: Word): boolean;
 const
-  ValidSignature: array[0..1] of Byte = ($FF, $D8);
-  Parameterless = [$01, $D0, $D1, $D2, $D3, $D4, $D5, $D6, $D7];
+  SigJPG: TBytes = [$FF, $D8];
 var
-  Sig: array[0..1] of byte;
-  x: integer;
-  Seg: byte;
-  Dummy: array[0..15] of byte;
-  Len: word;
-  ReadLen: LongInt;
-begin
-  AStream.Position := 0;
+  Buf: array[0..1] of Byte;
 
-  ReadLen := AStream.read(Sig[0], SizeOf(Sig));
-
-  for x := Low(Sig) to High(Sig) do
-    if Sig[x] <> ValidSignature[x] then
-      ReadLen := 0;
-
-  if ReadLen > 0 then
+  function SameValue(Sig: TBytes): Boolean;
   begin
-    ReadLen := AStream.read(Seg, 1);
-    while (Seg = $FF) and (ReadLen > 0) do
-    begin
-      ReadLen := AStream.read(Seg, 1);
-      if Seg <> $FF then
-      begin
-        if (Seg = $C0) or (Seg = $C1) then
+     Result := CompareMem(@Sig[0], @Buf[0], Length(Sig));
+  end;
+
+  function ReadTwoBytes: Boolean;
+  begin
+    Result := AStream.ReadData(Buf, 2) = 2;
+  end;
+
+  function ReadNextSegment: Boolean;
+  begin
+    if not ReadTwoBytes then
+      Exit(False);
+    if AStream.Position > AStream.Size div 2 then
+      Exit(False);
+    Result := Buf[0] = $FF;
+  end;
+
+begin
+  Result := False;
+  AStream.Position := 0;
+  // First two bytes in a JPG file MUST be $FFD8, followed by the next marker
+  if not (ReadNextSegment and SameValue(SigJPG)) then
+    Exit;
+  while ReadNextSegment do
+  begin
+    case Buf[1] of
+      $01, $D0..$D9:
         begin
-          ReadLen := AStream.read(Dummy[0], 3); { don't need these bytes }
-          wHeight := ReadMWord(AStream);
-          wWidth  := ReadMWord(AStream);
-        end
-        else
-        begin
-          if not (Seg in Parameterless) then
-          begin
-            Len := ReadMWord(AStream);
-            AStream.Seek(Len - 2, 1);
-            AStream.read(Seg, 1);
-          end
-          else
-            Seg := $FF; { Fake it to keep looping. }
+          Continue;
         end;
-      end;
+
+      $C0, $C1, $C2:
+        begin
+          AStream.Position := AStream.Position + 3;
+          wHeight := ReadMWord(AStream);
+          wWidth := ReadMWord(AStream);
+          Result := True;
+          Break;
+        end;
+    else
+      var Offset := ReadMWord(AStream);
+      AStream.Seek(Offset - 2, 1);
     end;
   end;
-  Result := (wWidth > 0) and (wHeight > 0);
 end;
 
 function TImageUtils.ReadMWord(AStream: TStream): Word;
