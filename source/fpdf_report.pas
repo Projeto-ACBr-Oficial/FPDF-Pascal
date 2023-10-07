@@ -5,6 +5,7 @@
  (forked from https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal)
 
  Copyright (c) 2023 Arimateia Jr - https://nuvemfiscal.com.br
+ - Colaboradores : Victor H Gonzales - Pandaaa - Compatibilização D7 / Lazarus
 
  Permission is hereby granted, free of charge, to any person obtaining a copy of
  this software and associated documentation files (the "Software"), to deal in
@@ -27,6 +28,11 @@
 }
 
 unit fpdf_report;
+
+{$ifdef fpc}
+  {$mode delphi}
+  {$H+}
+{$endif}
 
 // If you have DelphiZXingQRCode Unit on you LibPath
 // https://github.com/foxitsoftware/DelphiZXingQRCode
@@ -101,18 +107,18 @@ type
   end;
 
   TFPDFReport = class
-  strict private
+  private
     FPages: TFPDFPageList;
     FOptions: TFPDFReportOptions;
     FEngineOptions: TFPDFEngineOptions;
     FDefaultPageMargins: TFPDFMargins;
     FDefaultFontFamily: string;
     procedure CheckHasPage;
-  private
+
     function HasEndlessPage: boolean;
     property Pages: TFPDFPageList read FPages;
     property DefaultFontFamily: string read FDefaultFontFamily;
-  private
+
     procedure DoStartReport(Args: TFPDFReportEventArgs);
     procedure DoEndReport(Args: TFPDFReportEventArgs);
   protected
@@ -121,7 +127,7 @@ type
   public
     constructor Create; virtual;
     destructor Destroy; override;
-  public
+
     procedure SetMargins(ALeft, ATop: double; ARight: double = -1; ABottom: double = -1);
     procedure SetFont(const AFontFamily: string);
     function AddPage(AOrientation: TFPDFOrientation = poPortrait;
@@ -153,7 +159,7 @@ type
   end;
 
   TFPDFEngine = class
-  strict private
+  private
     FReport: TFPDFReport;
     FOwnsReport: boolean;
     FPDF: TFPDFExt2;
@@ -165,20 +171,21 @@ type
     FTotalPages: integer;
     FEndlessHeight: double;
     FBreakPage: boolean;
-    function IsAnyOfTypes(ABand: TFPDFBand; ABandTypes: TFPDFBandTypeArray): boolean;
-    function GetBands(APage: TFPDFPage; ABandTypes: TFPDFBandTypeArray): TFPDFBandArray;
+    FInMargins: boolean;
+    function IsAnyOfTypes(ABand: TFPDFBand; ABandTypes: array of TFPDFBandType): boolean;
+    function GetBands(APage: TFPDFPage; ABandTypes: array of TFPDFBandType): TFPDFBandArray;
     function IsMiddleOrReportFooterBand(ABand: TFPDFBand): boolean;
     function IsMarginBand(ABand: TFPDFBand): boolean;
     function OffsetEnabled(ABand: TFPDFBand): boolean;
     function GetCurrentPage: integer;
-  strict private
-    FInMargins: boolean;
-  strict private
+
+
+
     procedure RunFirstPass;
     procedure DrawReport;
     procedure StartNewPage(APage: TFPDFPage);
     procedure InitBands(APage: TFPDFPage); overload;
-    procedure InitBands(APage: TFPDFPage; ABandTypes: TFPDFBandTypeArray); overload;
+    procedure InitBands(APage: TFPDFPage; ABandTypes: array of TFPDFBandType); overload;
     procedure CalculatePageMargins(APage: TFPDFPage);
     procedure CalculateBandDimensions(APage: TFPDFPage);
     procedure DrawPage(APage: TFPDFPage);
@@ -187,12 +194,12 @@ type
     procedure DrawMiddleBands(APage: TFPDFPage);
     procedure DrawLastBands(APage: TFPDFPage);
     procedure DrawBands(APage: TFPDFPage; ABandType: TFPDFBandType); overload;
-    procedure DrawBands(APage: TFPDFPage; ABandTypes: TFPDFBandTypeArray); overload;
+    procedure DrawBands(APage: TFPDFPage; ABandTypes: array of TFPDFBandType); overload;
     procedure DrawBand(APage: TFPDFPage; ABand: TFPDFBand);
-  strict private
+  private
     procedure NotifyReportStart;
     procedure NotifyReportEnd;
-  private
+
     procedure SetDoublePass(const Value: boolean);
     property PDF: TFPDFExt2 read FPDF;
     property FinalPass: boolean read FFinalPass write FFinalPass;
@@ -208,7 +215,7 @@ type
   end;
 
   TFPDFPage = class
-  strict private
+  private
     FBands: TFPDFBandList;
     FOrientation: TFPDFOrientation;
     FPageUnit: TFPDFUnit;
@@ -216,7 +223,7 @@ type
     FPageWidth: double;
     FEndlessHeight: boolean;
     FVisible: boolean;
-  strict private
+
     FDefTopMargin: double;
     FDefBottomMargin: double;
     FDefLeftMargin: double;
@@ -230,7 +237,7 @@ type
     property DefBottomMargin: double read FDefBottomMargin write FDefBottomMargin;
     property DefLeftMargin: double read FDefLeftMargin write FDefLeftMargin;
     property DefRightMargin: double read FDefRightMargin write FDefRightMargin;
-  private
+
     property Bands: TFPDFBandList read FBands;
   public
     constructor Create(AOrientation: TFPDFOrientation = poPortrait;
@@ -256,9 +263,9 @@ type
   end;
 
   TFPDFEngineEventArgs = class
-  strict private
-    FEngine: TFPDFEngine;
   private
+    FEngine: TFPDFEngine;
+
     function GetCurrentPage: integer;
     function GetFinalPass: boolean;
     function GetTotalPages: integer;
@@ -272,14 +279,14 @@ type
   TFPDFReportEventArgs = class(TFPDFEngineEventArgs);
 
   TFPDFPageEventArgs = class(TFPDFEngineEventArgs)
-  strict private
+  private
     FPage: TFPDFPage;
     FRecalculateDimensions: boolean;
     FLeftMargin: double;
     FTopMargin: double;
     FRightMargin: double;
     FBottomMargin: double;
-  private
+
     function GetOrientation: TFPDFOrientation;
     function GetPageHeight: double;
     function GetPageWidth: double;
@@ -296,10 +303,10 @@ type
   end;
 
   TFPDFBandEventArgs = class(TFPDFPageEventArgs)
-  strict private
+  private
     FBand: TFPDFBand;
     FPDF: IFPDF;
-  private
+
     procedure SetPDF(APDF: IFPDF);
   public
     constructor Create(AEngine: TFPDFEngine; APage: TFPDFPage; ABand: TFPDFBand);
@@ -308,7 +315,6 @@ type
   end;
 
   TFPDFBandInitArgs = class(TFPDFBandEventArgs)
-  strict private
   private
     function GetHeight: double;
     function GetWidth: double;
@@ -320,11 +326,11 @@ type
   end;
 
   TFPDFBandDrawArgs = class(TFPDFBandEventArgs)
-  strict private
+  private
     FDrawAgain: boolean;
     FFreeSpace: double;
     FReservedSpace: double;
-  private
+
     procedure SetFreeSpace(const Value: double);
     procedure SetReservedSpace(const Value: double);
   public
@@ -334,14 +340,14 @@ type
   end;
 
   TFPDFBand = class
-  strict private
+  private
     FBandType: TFPDFBandType;
     FName: string;
     FAutoHeight: boolean;
     FHeight: double;
     FWidth: double;
     FVisible: boolean;
-  private
+
     procedure DoInit(Args: TFPDFBandInitArgs);
     procedure DoDraw(Args: TFPDFBandDrawArgs);
   protected
@@ -357,41 +363,40 @@ type
   end;
 
   TFPDFPageList = class
-  strict private
+  private
     FInternalList: TObjectList;
   protected
-    function GetItem(Index: Integer): TFPDFPage; inline;
-    procedure SetItem(Index: Integer; Value: TFPDFPage); inline;
+    function GetItem(Index: Integer): TFPDFPage;
+    procedure SetItem(Index: Integer; Value: TFPDFPage);
   public
     constructor Create; overload;
     constructor Create(AOwnsObjects: Boolean); overload;
     destructor Destroy; override;
-    function Add(Value: TFPDFPage): Integer; inline;
+    function Add(Value: TFPDFPage): Integer;
     function Count: Integer;
     property Objects[Index: Integer]: TFPDFPage read GetItem write SetItem; default;
   end;
 
   TFPDFBandList = class
-  strict private
+  private
     FInternalList: TObjectList;
   protected
-    function GetItem(Index: Integer): TFPDFBand; inline;
-    procedure SetItem(Index: Integer; Value: TFPDFBand); inline;
+    function GetItem(Index: Integer): TFPDFBand;
+    procedure SetItem(Index: Integer; Value: TFPDFBand);
   public
     constructor Create; overload;
     constructor Create(AOwnsObjects: Boolean); overload;
     destructor Destroy; override;
-    function Add(Value: TFPDFBand): Integer; inline;
-    procedure Clear; inline;
+    function Add(Value: TFPDFBand): Integer;
+    procedure Clear;
     function Count: Integer;
-    function Contains(const Value: TFPDFBand): Boolean; inline;
-    function IndexOf(const Value: TFPDFBand): Integer; inline;
-    function Remove(const Value: TFPDFBand): Integer; inline;
+    function Contains(const Value: TFPDFBand): Boolean;
+    function IndexOf(const Value: TFPDFBand): Integer;
+    function Remove(const Value: TFPDFBand): Integer;
     property Objects[Index: Integer]: TFPDFBand read GetItem write SetItem; default;
   end;
 
   TFPDFExt2 = class(TFPDFExt)
-  strict private
   private
     function GetCurrentFontFamily: string;
     function GetCurrentFontSize: double;
@@ -419,7 +424,7 @@ type
     procedure SetFillColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
     procedure SetTextColor(color: TFPDFColor); overload;
     procedure SetTextColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
-    procedure SetTextColor(const Value: string); overload;
+    procedure SetTextColorAsString(const Value: string);
     procedure SetUnderline(fUnderline: Boolean = False);
     procedure SetDash(ABlack, AWhite: double); overload;
     procedure SetDash(AWidth: double); overload;
@@ -473,7 +478,7 @@ type
     property CurrentFontSize: double read GetCurrentFontSize;
     property CurrentFontSizePt: double read GetCurrentFontSizePt;
     property CurrentFontFamily: string read GetCurrentFontFamily;
-    property TextColor: string read GetTextColor write SetTextColor;
+    property TextColor: string read GetTextColor write SetTextColorAsString;
   end;
 
   EFPDFReportException = class(Exception)
@@ -482,22 +487,40 @@ type
   TImgType = (itUnknown, itPng, itJpg);
 
   TImageUtils = class
-  strict private
+  private
     function ReadMWord(AStream: TStream): Word;
     function GetJPGSize(AStream: TStream; var wWidth, wHeight: Word): boolean;
     function GetPNGSize(AStream: TStream; var wWidth, wHeight: Word): boolean;
   public
     function GetImageSize(const sFile: string; var wWidth, wHeight: Word): boolean; overload;
-    function GetImageSize(ABytes: TBytes; var wWidth, wHeight: Word): boolean; overload;
+    function GetImageSize(ABytes: array of Byte; var wWidth, wHeight: Word): boolean; overload;
     function GetImageSize(AStream: TStream; var wWidth, wHeight: Word): boolean; overload;
     function GetImageType(const sFile: string): TImgType; overload;
-    function GetImageType(ABytes: TBytes): TImgType; overload;
+    function GetImageType(ABytes: array of Byte): TImgType; overload;
     function GetImageType(AStream: TStream): TImgType; overload;
   end;
 
 implementation
 
 const
+  cMarginBands: array[0..3] of TFPDFBandType = (
+    btLeftMargin,
+    btTopMargin,
+    btRightMargin,
+    btBottomMargin
+  );
+  cFirstBands: array[0..1] of TFPDFBandType =(
+    btReportHeader,
+    btPageHeader
+  );
+  cMiddleBands: array[0..0] of TFPDFBandType = (
+    btData//, btReportFooter
+  );
+  cLastBands: array[0..0] of TFPDFBandType = (
+    btPageFooter
+  );
+
+{const
   cMarginBands: TFPDFBandTypeArray = [
     btLeftMargin,
     btTopMargin,
@@ -513,11 +536,10 @@ const
   ];
   cLastBands: TFPDFBandTypeArray = [
     btPageFooter
-  ];
-
+  ];}
 type
   TFPDFAnonymousBand = class(TFPDFBand)
-  strict private
+  private
     FHeight: double;
     FInitEvent: TFPDFBandInitEvent;
     FDrawEvent: TFPDFBandDrawEvent;
@@ -530,14 +552,14 @@ type
   end;
 
   TFPDFWrapper = class(TInterfacedObject, IFPDF)
-  strict private
+  private
     FPDF: TFPDFExt2;
     FOffsetX: double;
     FOffsetY: double;
     FModified: boolean;
     FHighestX: double;
     FHighestY: double;
-  private
+
     function GetOrientation: TFPDFOrientation;
     function GetCurrentPage: integer;
     function GetCurrentFontSize: double;
@@ -562,7 +584,7 @@ type
     procedure SetFillColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
     procedure SetTextColor(color: TFPDFColor); overload;
     procedure SetTextColor(ValR: Integer = 0; ValG: Integer = -1; ValB: Integer = -1); overload;
-    procedure SetTextColor(const Value: string); overload;
+    procedure SetTextColorAsString(const Value: string);
     procedure SetUnderline(fUnderline: Boolean = False);
     procedure SetDash(ABlack, AWhite: double); overload;
     procedure SetDash(AWidth: double); overload;
@@ -973,7 +995,7 @@ begin
   end;
 end;
 
-procedure TFPDFEngine.DrawBands(APage: TFPDFPage; ABandTypes: TFPDFBandTypeArray);
+procedure TFPDFEngine.DrawBands(APage: TFPDFPage; ABandTypes: array of TFPDFBandType);
 var
   Bands: TFPDFBandArray;
   Band: TFPDFBand;
@@ -1048,12 +1070,22 @@ end;
 procedure TFPDFEngine.DrawMiddleBands(APage: TFPDFPage);
 var
   Band: TFPDFBand;
+  Bands : TFPDFBandArray;
+  I: Integer;
 begin
   // Calculate free space
-  for Band in GetBands(APage, cLastBands) do
+  {for Band in GetBands(APage, cLastBands) do
   begin
     if Band.Visible then
       FFreeSpace := FFreeSpace - Band.Height;
+  end;}
+
+  Bands := GetBands(APage, cLastBands);
+
+  for I := Low(Bands) to High(Bands) do
+  begin
+    if Bands[I].Visible then
+      FFreeSpace := FFreeSpace - Bands[I].Height;
   end;
 
   while FActiveMiddleBands.Count > 0 do
@@ -1101,7 +1133,7 @@ begin
 end;
 
 function TFPDFEngine.GetBands(APage: TFPDFPage;
-  ABandTypes: TFPDFBandTypeArray): TFPDFBandArray;
+  ABandTypes: array of TFPDFBandType): TFPDFBandArray;
 var
   Band: TFPDFBand;
   I: Integer;
@@ -1124,12 +1156,31 @@ begin
 end;
 
 procedure TFPDFEngine.InitBands(APage: TFPDFPage);
+//var MergedBands : array of TFPDFBandType;
+//I, J : Integer;
 begin
   InitBands(APage, cMarginBands);
   CalculatePageMargins(APage);
 //  CalculateBandDimensions(APage, nil);
   FActiveMiddleBands.Clear;
-  InitBands(APage, cFirstBands + cMiddleBands + cLastBands);
+  {SetLength(MergedBands, Length(cFirstBands) + Length(cMiddleBands) + Length(cLastBands));
+  J :=0;
+  for i := Low(cFirstBands) to High(cFirstBands) do
+  begin
+    MergedBands[j] := cFirstBands[i];
+  end;
+  for i := Low(cMiddleBands) to High(cMiddleBands) do
+  begin
+    MergedBands[j] := cMiddleBands[i];
+  end;
+  for i := Low(cLastBands) to High(cLastBands) do
+  begin
+    MergedBands[j] := cLastBands[i];
+  end;
+
+  InitBands(APage, MergedBands);}
+
+  InitBands(APage, [btReportHeader,btPageHeader,btData,btPageFooter]);
   InitBands(APage, [btReportFooter]);
 
   if FReport.HasEndlessPage then
@@ -1137,7 +1188,7 @@ begin
 end;
 
 procedure TFPDFEngine.InitBands(APage: TFPDFPage;
-  ABandTypes: TFPDFBandTypeArray);
+  ABandTypes: array of TFPDFBandType);
 var
   Bands: TFPDFBandArray;
   Band: TFPDFBand;
@@ -1167,7 +1218,7 @@ begin
 end;
 
 function TFPDFEngine.IsAnyOfTypes(ABand: TFPDFBand;
-  ABandTypes: TFPDFBandTypeArray): boolean;
+  ABandTypes: array of TFPDFBandType): boolean;
 var
   I: integer;
 begin
@@ -1460,22 +1511,22 @@ begin
   FPDF.DashedRect(vX, vY, vWidht, vHeight, vStyle, ADashWidth);
 end;
 
-function TFPDFWrapper.GetCurrentFontFamily: string;
+function TFPDFWrapper.GetCurrentFontFamily(): string;
 begin
   Result := FPDF.FontFamily;
 end;
 
-function TFPDFWrapper.GetCurrentFontSize: double;
+function TFPDFWrapper.GetCurrentFontSize(): double;
 begin
   Result := FPDF.FontSize;
 end;
 
-function TFPDFWrapper.GetCurrentFontSizePt: double;
+function TFPDFWrapper.GetCurrentFontSizePt(): double;
 begin
   Result := FPDF.FontSizePt;
 end;
 
-function TFPDFWrapper.GetCurrentPage: integer;
+function TFPDFWrapper.GetCurrentPage(): integer;
 begin
   Result := FPDF.PageNo;
 end;
@@ -1666,7 +1717,7 @@ begin
   FPDF.SetLineWidth(vWidth);
 end;
 
-procedure TFPDFWrapper.SetTextColor(const Value: string);
+procedure TFPDFWrapper.SetTextColorAsString(const Value: string);
 begin
   FPDF.TextColor := Value;
 end;
@@ -1825,9 +1876,9 @@ var
   wWidth, wHeight: word;
 begin
   if GetPNGSize(AStream, wWidth, wHeight) then
-    Exit(itPng);
+    Result := itPng;
   if GetJPGSize(AStream, wWidth, wHeight) then
-    Exit(itJpg);
+    Result := itJpg;
   Result := itUnknown;
 end;
 
@@ -1930,7 +1981,7 @@ begin
   AStream.read(Sig[0], SizeOf(ValidSignature));
   for x := Low(Sig) to High(Sig) do
     if Sig[x] <> ValidSignature[x] then
-      Exit(False);
+      Result := False;
   AStream.Seek(18, 0);
   wWidth := ReadMWord(AStream);
   AStream.Seek(22, 0);
@@ -1938,12 +1989,12 @@ begin
   Result := True;
 end;
 
-function TImageUtils.GetImageSize(ABytes: TBytes; var wWidth,
+function TImageUtils.GetImageSize(ABytes: array of Byte; var wWidth,
   wHeight: Word): boolean;
 var
-  Stream: TBytesStream;
+  Stream: TMemoryStream;
 begin
-  Stream := TBytesStream.Create(ABytes);
+  Stream := TMemoryStream.Create;
   try
     Result := GetImageSize(Stream, wWidth, wHeight);
   finally
@@ -1951,11 +2002,11 @@ begin
   end;
 end;
 
-function TImageUtils.GetImageType(ABytes: TBytes): TImgType;
+function TImageUtils.GetImageType(ABytes: array of Byte): TImgType;
 var
-  Stream: TBytesStream;
+  Stream: TMemoryStream;
 begin
-  Stream := TBytesStream.Create(ABytes);
+  Stream := TMemoryStream.Create;
   try
     Result := GetImageType(Stream);
   finally
