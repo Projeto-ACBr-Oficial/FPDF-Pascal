@@ -1861,17 +1861,17 @@ var
 
   function ReadNextSegment: Boolean;
   begin
+    Result := False;
     if not ReadTwoBytes then
-      Exit(False);
+      Exit;
     if AStream.Position > AStream.Size div 2 then
-      Exit(False);
+      Exit;
     Result := Buf[0] = $FF;
   end;
 
 begin
   Result := False;
   AStream.Position := 0;
-  // First two bytes in a JPG file MUST be $FFD8, followed by the next marker
   if not (ReadNextSegment and SameValue(SigJPG)) then
     Exit;
   while ReadNextSegment do
