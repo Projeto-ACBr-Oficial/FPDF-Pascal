@@ -5,7 +5,9 @@
  (forked from https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal)
 
  Copyright (c) 2023 Arimateia Jr - https://nuvemfiscal.com.br
- - Colaboradores : Victor H Gonzales - Pandaaa - Compatibilização D7 / Lazarus
+
+ Colaboradores nesse arquivo:
+ - Victor H Gonzales - Pandaaa - Compatibilização D7 / Lazarus
 
  Permission is hereby granted, free of charge, to any person obtaining a copy of
  this software and associated documentation files (the "Software"), to deal in
@@ -1156,31 +1158,34 @@ begin
 end;
 
 procedure TFPDFEngine.InitBands(APage: TFPDFPage);
-//var MergedBands : array of TFPDFBandType;
-//I, J : Integer;
+var
+  MergedBands: array of TFPDFBandType;
+  I, J: Integer;
 begin
   InitBands(APage, cMarginBands);
   CalculatePageMargins(APage);
 //  CalculateBandDimensions(APage, nil);
   FActiveMiddleBands.Clear;
-  {SetLength(MergedBands, Length(cFirstBands) + Length(cMiddleBands) + Length(cLastBands));
-  J :=0;
-  for i := Low(cFirstBands) to High(cFirstBands) do
+
+  SetLength(MergedBands, Length(cFirstBands) + Length(cMiddleBands) + Length(cLastBands));
+  J := 0;
+  for I := Low(cFirstBands) to High(cFirstBands) do
   begin
-    MergedBands[j] := cFirstBands[i];
+    MergedBands[J] := cFirstBands[I];
+    Inc(J);
   end;
-  for i := Low(cMiddleBands) to High(cMiddleBands) do
+  for I := Low(cMiddleBands) to High(cMiddleBands) do
   begin
-    MergedBands[j] := cMiddleBands[i];
+    MergedBands[J] := cMiddleBands[I];
+    Inc(J);
   end;
-  for i := Low(cLastBands) to High(cLastBands) do
+  for I := Low(cLastBands) to High(cLastBands) do
   begin
-    MergedBands[j] := cLastBands[i];
+    MergedBands[J] := cLastBands[I];
+    Inc(J);
   end;
 
-  InitBands(APage, MergedBands);}
-
-  InitBands(APage, [btReportHeader,btPageHeader,btData,btPageFooter]);
+  InitBands(APage, MergedBands);
   InitBands(APage, [btReportFooter]);
 
   if FReport.HasEndlessPage then
@@ -1875,11 +1880,11 @@ function TImageUtils.GetImageType(AStream: TStream): TImgType;
 var
   wWidth, wHeight: word;
 begin
-  if GetPNGSize(AStream, wWidth, wHeight) then
-    Result := itPng;
-  if GetJPGSize(AStream, wWidth, wHeight) then
-    Result := itJpg;
   Result := itUnknown;
+  if GetPNGSize(AStream, wWidth, wHeight) then
+    Result := itPng
+  else if GetJPGSize(AStream, wWidth, wHeight) then
+    Result := itJpg;
 end;
 
 function TImageUtils.GetImageType(const sFile: string): TImgType;
@@ -1981,7 +1986,10 @@ begin
   AStream.read(Sig[0], SizeOf(ValidSignature));
   for x := Low(Sig) to High(Sig) do
     if Sig[x] <> ValidSignature[x] then
+    begin
       Result := False;
+      Exit;
+    end;
   AStream.Seek(18, 0);
   wWidth := ReadMWord(AStream);
   AStream.Seek(22, 0);
@@ -1996,6 +2004,7 @@ var
 begin
   Stream := TMemoryStream.Create;
   try
+    Stream.Write(ABytes, Length(ABytes));
     Result := GetImageSize(Stream, wWidth, wHeight);
   finally
     Stream.Free;
@@ -2008,6 +2017,7 @@ var
 begin
   Stream := TMemoryStream.Create;
   try
+    Stream.Write(ABytes, Length(ABytes));
     Result := GetImageType(Stream);
   finally
     Stream.Free;
