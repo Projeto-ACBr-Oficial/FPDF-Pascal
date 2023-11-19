@@ -1901,18 +1901,19 @@ end;
 
 function TImageUtils.GetJPGSize(AStream: TStream; var wWidth, wHeight: Word): boolean;
 const
-  SigJPG: TBytes = [$FF, $D8];
+  SigJPG: array[0..1] of Byte = ($FF, $D8);
 var
   Buf: array[0..1] of Byte;
+  Offset: Word;
 
-  function SameValue(Sig: TBytes): Boolean;
+  function SameValue(Sig: array of Byte): Boolean;
   begin
      Result := CompareMem(@Sig[0], @Buf[0], Length(Sig));
   end;
 
   function ReadTwoBytes: Boolean;
   begin
-    Result := AStream.ReadData(Buf, 2) = 2;
+    Result := (AStream.Read(Buf, 2) = 2);
   end;
 
   function ReadNextSegment: Boolean;
@@ -1947,7 +1948,7 @@ begin
           Break;
         end;
     else
-      var Offset := ReadMWord(AStream);
+      Offset := ReadMWord(AStream);
       AStream.Seek(Offset - 2, 1);
     end;
   end;
