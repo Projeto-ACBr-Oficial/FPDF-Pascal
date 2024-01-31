@@ -77,7 +77,7 @@ We try to stay faithful as much as possible in translating sources from PHP to P
 
 This may have caused an unusual programming style for the Pascal language. But we believe it will be strategic when we need to perform a new Merge, with the original sources, in PHP
 
-The Unit **fpdf.pas**, is designed to have the same functionality as the oringal file, **fpdh.php**. This means that no additional Scripts or functionalities are included on this Unit.
+The Unit **fpdf.pas**, is designed to have the same functionality as the oringal file, **fpdf.php**. This means that no additional Scripts or functionalities are included on this Unit.
 
 The Unit **fpf_ext.pas**, has an extendeded version of **TFPDF** class. And incorporates several new functionalities and Scripts.
 
