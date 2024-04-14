@@ -1,5 +1,7 @@
 unit report1;
 
+{$mode objfpc}{$H+}
+
 interface
 
 uses
@@ -8,10 +10,11 @@ uses
 
 type
   TReport1 = class(TFPDFReport)
-  private
+  strict private
     FCustomer: integer;
     FProduct: integer;
     FIndent: double;
+  private
     procedure DrawTopMargin(Args: TFPDFBandDrawArgs);
     procedure DrawBottomMargin(Args: TFPDFBandDrawArgs);
     procedure DrawReportHeader(Args: TFPDFBandDrawArgs);
@@ -40,17 +43,17 @@ begin
   SetMargins(10, 13.5);
   AddPage;
 
-  AddBand(btTopMargin, 10, DrawTopMargin);
-  AddBand(btBottomMargin, 10, DrawBottomMargin);
-  AddBand(btReportHeader, 10, DrawReportHeader);
-  AddBand(btReportFooter, 10, DrawReportFooter);
-  AddBand(btPageHeader, 10, DrawPageHeader);
-  AddBand(btPageFooter, 10, DrawPageFooter);
-  AddBand(btData, 10, DrawCustomers);
-  AddBand(btData, 10, DrawData);
-  AddBand(btData, 10, DrawProducts);
-  AddBand(btData, 10, DrawFillEmptySpace);
-  AddBand(btOverlay, 10, DrawOverlay);
+  AddBand(btTopMargin, 10, @DrawTopMargin);
+  AddBand(btBottomMargin, 10, @DrawBottomMargin);
+  AddBand(btReportHeader, 10, @DrawReportHeader);
+  AddBand(btReportFooter, 10, @DrawReportFooter);
+  AddBand(btPageHeader, 10, @DrawPageHeader);
+  AddBand(btPageFooter, 10, @DrawPageFooter);
+  AddBand(btData, 10, @DrawCustomers);
+  AddBand(btData, 10, @DrawData);
+  AddBand(btData, 10, @DrawProducts);
+  AddBand(btData, 10, @DrawFillEmptySpace);
+  AddBand(btOverlay, 10, @DrawOverlay);
 end;
 
 procedure TReport1.DrawReportFooter(Args: TFPDFBandDrawArgs);
