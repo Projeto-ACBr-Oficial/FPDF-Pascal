@@ -86,3 +86,5 @@ demo/lazarus/FPDFPascalTeste.pdf
 *.pdf
 /demo/delphi/*.skincfg
 /demo/delphi/reports/*.skincfg
+/demo/delphi/Android64
+/demo/delphi/Linux64
