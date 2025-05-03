@@ -62,15 +62,16 @@
         </Mode0>
       </Modes>
     </RunParams>
-    <Units Count="2">
+    <RequiredPackages Count="1">
+      <Item1>
+        <PackageName Value="FPDFPascal"/>
+      </Item1>
+    </RequiredPackages>
+    <Units Count="1">
       <Unit0>
         <Filename Value="demofpdfpascal.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
-      <Unit1>
-        <Filename Value="../../source/fpdf.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit1>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
