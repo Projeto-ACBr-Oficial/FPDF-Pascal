@@ -1087,7 +1087,7 @@ function TFPDF.GetStringWidth(const vText: String): Double;
 var
   cw: TFPDFFontInfo;
   lines: TStringArray;
-  vw, vw1, l, i, j: Integer;
+  vw, vw1, l, i, j, o: Integer;
 begin
   // Get width of a string in the current font
   Result := 0;
@@ -1102,7 +1102,12 @@ begin
     l := Length(lines[i]);
     vw1 := 0;
     for j := 1 to l do
-      vw1 := vw1 + cw[ord(lines[i][j])];
+    begin
+      o := ord(lines[i][j]);
+      if (o > 255) then
+        o := 63;  // ?
+      vw1 := vw1 + cw[o];
+    end;
     if vw1 > vw then
       vw := vw1;
   end;
@@ -1428,7 +1433,7 @@ var
   cw: TFPDFFontInfo;
   wFirst, wOther, wMax, wMaxFirst, wMaxOther, SaveX: Double;
   s, b, vb, b2: String;
-  nb, sep, i, j, l, ns, nl, ls: Integer;
+  nb, sep, i, j, l, ns, nl, ls, o: Integer;
   c: Char;
   vUTF8, First: Boolean;
 begin
@@ -1516,7 +1521,10 @@ begin
         Inc(ns);
       end;
 
-      l := l + cw[ord(c)];
+      o := ord(c);
+      if (o > 255) then
+        o := 63;  // ?
+      l := l + cw[o];
 
       if First then
       begin
@@ -1609,7 +1617,7 @@ var
   cw: TFPDFFontInfo;
   vw, wmax: Double;
   s: String;
-  nb, sep, i, j, l, nl: Integer;
+  nb, sep, i, j, l, nl, o: Integer;
   c: Char;
   vUTF8: Boolean;
 begin
@@ -1656,7 +1664,11 @@ begin
       if (c = ' ') then
         sep := i;
 
-      l := l + cw[Ord(c)];
+      o := Ord(c);
+      if (o > 255) then
+        o := 63;  // ?
+      l := l + cw[o];
+
       if (l > wmax) then
       begin
         // Automatic line break
