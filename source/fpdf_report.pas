@@ -119,12 +119,11 @@ type
     procedure CheckHasPage;
 
     function HasEndlessPage: boolean;
-    property Pages: TFPDFPageList read FPages;
-    property DefaultFontFamily: string read FDefaultFontFamily;
-    property UTF8: Boolean read FUTF8;
-
     procedure DoStartReport(Args: TFPDFReportEventArgs);
     procedure DoEndReport(Args: TFPDFReportEventArgs);
+    property Pages: TFPDFPageList read FPages;
+    property DefaultPageMargins: TFPDFMargins read FDefaultPageMargins;
+    property DefaultFontFamily: string read FDefaultFontFamily;
   protected
     procedure OnStartReport(Args: TFPDFReportEventArgs); virtual;
     procedure OnEndReport(Args: TFPDFReportEventArgs); virtual;
@@ -164,6 +163,8 @@ type
   end;
 
   TFPDFEngine = class
+  const
+    cDefaultMaxPageCount = 1000;
   private
     FReport: TFPDFReport;
     FOwnsReport: boolean;
@@ -174,6 +175,7 @@ type
     FFreeSpace: double;
     FActiveMiddleBands: TFPDFBandList;
     FTotalPages: integer;
+    FMaxPageCount: Integer;
     FEndlessHeight: double;
     FBreakPage: boolean;
     FInMargins: boolean;
@@ -216,6 +218,7 @@ type
     procedure SaveToStream(AStream: TStream);
     property CurrentPage: integer read GetCurrentPage;
     property TotalPages: integer read FTotalPages;
+    property MaxPageCount: Integer read FMaxPageCount write FMaxPageCount;
     property Compressed: Boolean read FCompressed write FCompressed;
   end;
 
@@ -455,9 +458,11 @@ type
 
     procedure Rotate(NewAngle: Double = 0; vX: Double = -1; vY: Double = -1);
     procedure Line(vX1, vY1, vX2, vY2: Double);
-    procedure Rect(vX, vY, vWidht, vHeight: Double; const vStyle: String = '');
+    procedure Rect(vX, vY, vWidth, vHeight: Double; const vStyle: String = '');
     procedure DashedLine(vX1, vY1, vX2, vY2: Double; ADashWidth: double = 1);
-    procedure DashedRect(vX, vY, vWidht, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
+    procedure DashedRect(vX, vY, vWidth, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
+    procedure RoundedRect(vX, vY, vWidth, vHeight: Double;
+      vRadius: Double = 5; vCorners: String = '1234'; vStyle: String = '');
     procedure Image(x, y, w, h: double; AStream: TStream;
       const vAlign: char = 'T'; const hAlign: char = 'L';
       AStretched: boolean = False);
@@ -615,9 +620,11 @@ type
 
     procedure Rotate(NewAngle: Double = 0; vX: Double = -1; vY: Double = -1);
     procedure Line(vX1, vY1, vX2, vY2: Double);
-    procedure Rect(vX, vY, vWidht, vHeight: Double; const vStyle: String = '');
+    procedure Rect(vX, vY, vWidth, vHeight: Double; const vStyle: String = '');
     procedure DashedLine(vX1, vY1, vX2, vY2: Double; ADashWidth: double = 1);
-    procedure DashedRect(vX, vY, vWidht, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
+    procedure DashedRect(vX, vY, vWidth, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
+    procedure RoundedRect(vX, vY, vWidth, vHeight: Double;
+      vRadius: Double = 5; vCorners: String = '1234'; vStyle: String = '');
     procedure Image(x, y, w, h: double; AStream: TStream;
       const vAlign: char = 'T'; const hAlign: char = 'L';
       AStretched: boolean = False);
@@ -887,6 +894,7 @@ begin
   FReport := AReport;
   FOwnsReport := AOwnsReport;
   FActiveMiddleBands := TFPDFBandList.Create(False);
+  FMaxPageCount := cDefaultMaxPageCount;
   FCompressed := True;
   FDoublePass := AReport.EngineOptions.DoublePass or AReport.HasEndlessPage;
   FFinalPass := False;
@@ -1121,6 +1129,11 @@ end;
 procedure TFPDFEngine.DrawPage(APage: TFPDFPage);
 begin
   repeat
+    if FPDF.page > MaxPageCount then
+      raise EFPDFReportException.CreateFmt(
+        'Page limit exceeded: more than %d pages were generated. Possible infinite loop detected.',
+        [MaxPageCount]);
+
     StartNewPage(APage);
     // Draw bands
     DrawFirstBands(APage);
@@ -1518,13 +1531,13 @@ begin
   FPDF.DashedLine(vX1, vY1, vX2, vY2, ADashWidth);
 end;
 
-procedure TFPDFWrapper.DashedRect(vX, vY, vWidht, vHeight: Double;
+procedure TFPDFWrapper.DashedRect(vX, vY, vWidth, vHeight: Double;
   const vStyle: String; ADashWidth: double);
 begin
   ApplyOffset(vX, vY);
-  ApplyHighestXY(vX + vWidht, vY + vHeight);
+  ApplyHighestXY(vX + vWidth, vY + vHeight);
 
-  FPDF.DashedRect(vX, vY, vWidht, vHeight, vStyle, ADashWidth);
+  FPDF.DashedRect(vX, vY, vWidth, vHeight, vStyle, ADashWidth);
 end;
 
 function TFPDFWrapper.GetCurrentFontFamily(): string;
@@ -1677,13 +1690,13 @@ begin
 end;
 {$ENDIF}
 
-procedure TFPDFWrapper.Rect(vX, vY, vWidht, vHeight: Double;
+procedure TFPDFWrapper.Rect(vX, vY, vWidth, vHeight: Double;
   const vStyle: String);
 begin
   ApplyOffset(vX, vY);
-  ApplyHighestXY(vX + vWidht, vY + vHeight);
+  ApplyHighestXY(vX + vWidth, vY + vHeight);
 
-  FPDF.Rect(vX, vY, vWidht, vHeight, vStyle);
+  FPDF.Rect(vX, vY, vWidth, vHeight, vStyle);
 end;
 
 procedure TFPDFWrapper.Rotate(NewAngle, vX, vY: Double);
@@ -1691,6 +1704,15 @@ begin
   ApplyOffset(vX, vY);
 
   FPDF.Rotate(NewAngle, vX, vY);
+end;
+
+procedure TFPDFWrapper.RoundedRect(vX, vY, vWidth, vHeight, vRadius: Double;
+  vCorners, vStyle: String);
+begin
+  ApplyOffset(vX, vY);
+  ApplyHighestXY(vX + vWidth, vY + vHeight);
+
+  FPDF.RoundedRect(vX, vY, vWidth, vHeight, vRadius, vCorners, vStyle);
 end;
 
 procedure TFPDFWrapper.SetDash(ABlack, AWhite: double);
