@@ -124,6 +124,7 @@ type
     property Pages: TFPDFPageList read FPages;
     property DefaultPageMargins: TFPDFMargins read FDefaultPageMargins;
     property DefaultFontFamily: string read FDefaultFontFamily;
+    property UTF8: Boolean read FUTF8;
   protected
     procedure OnStartReport(Args: TFPDFReportEventArgs); virtual;
     procedure OnEndReport(Args: TFPDFReportEventArgs); virtual;
