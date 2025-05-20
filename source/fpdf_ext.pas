@@ -341,7 +341,7 @@ type
     procedure SetDash(ABlack, AWhite: double); overload;
     procedure SetDash(AWidth: double); overload;
     procedure DashedLine(vX1, vY1, vX2, vY2: Double; ADashWidth: double = 1);
-    procedure DashedRect(vX, vY, vWidht, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
+    procedure DashedRect(vX, vY, vWidth, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
 
     function WordWrap(var AText: string; AMaxWidth: Double; AIndent: double = 0): integer;
     function GetNumLines(const AText: string; AWidth: Double; AIndent: double = 0): integer;
@@ -1807,12 +1807,12 @@ begin
   end;
 end;
 
-procedure TFPDFExt.DashedRect(vX, vY, vWidht, vHeight: Double;
+procedure TFPDFExt.DashedRect(vX, vY, vWidth, vHeight: Double;
   const vStyle: String; ADashWidth: double);
 begin
   SetDash(ADashWidth);
   try
-    Rect(vX, vY, vWidht, vHeight, vStyle);
+    Rect(vX, vY, vWidth, vHeight, vStyle);
   finally
     SetDash(0);
   end;

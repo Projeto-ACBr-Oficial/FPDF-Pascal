@@ -1084,10 +1084,33 @@ begin
 end;
 
 function TFPDF.GetStringWidth(const vText: String): Double;
+
+  function TryMapToLatin1(const vOrd: Integer; out Value: Integer): Boolean;
+  var
+    I: Integer;
+  begin
+    if vOrd <= 255 then
+    begin
+      Value := vOrd;
+      Result := True;
+      Exit;
+    end;
+
+    for I := 0 to 255 do
+      if (Self.CurrentFont.uv1[I] = vOrd) or (Self.CurrentFont.uv2[I] = vOrd) then
+      begin
+        Result := True;
+        Value := I;
+        Exit;
+      end;
+
+    Result := False;
+  end;
+
 var
   cw: TFPDFFontInfo;
   lines: TStringArray;
-  vw, vw1, l, i, j, o: Integer;
+  vw, vw1, l, i, j, cw_ord: Integer;
 begin
   // Get width of a string in the current font
   Result := 0;
@@ -1103,10 +1126,10 @@ begin
     vw1 := 0;
     for j := 1 to l do
     begin
-      o := ord(lines[i][j]);
-      if (o > 255) then
-        o := 63;  // ?
-      vw1 := vw1 + cw[o];
+      if TryMapToLatin1(ord(lines[i][j]), cw_ord) then
+        vw1 := vw1 + cw[cw_ord]
+      else
+        vw1 := vw1 + 1000;
     end;
     if vw1 > vw then
       vw := vw1;
