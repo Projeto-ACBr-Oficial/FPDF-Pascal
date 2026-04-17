@@ -56,7 +56,7 @@
    {$If CompilerVersion >= 20}       // VER200 	Delphi 2009 / C++Builder 2009
     {$WARN IMPLICIT_STRING_CAST OFF}
     {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
-   {$IfEnd}
+   {$EndIf}
   {$EndIf}
 {$EndIf}
 
