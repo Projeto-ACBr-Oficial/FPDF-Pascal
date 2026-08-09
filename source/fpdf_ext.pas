@@ -298,7 +298,7 @@ type
     procedure SetDash(ABlack, AWhite: double); overload;
     procedure SetDash(AWidth: double); overload;
     procedure DashedLine(vX1, vY1, vX2, vY2: Double; ADashWidth: double = 1);
-    procedure DashedRect(vX, vY, vWidht, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
+    procedure DashedRect(vX, vY, vWidth, vHeight: Double; const vStyle: String = ''; ADashWidth: double = 1);
 
     function WordWrap(var AText: string; AMaxWidth: Double; AIndent: double = 0): integer;
     function GetNumLines(const AText: string; AWidth: Double; AIndent: double = 0): integer;
@@ -1136,6 +1136,17 @@ end;
 
 function TFPDFExt.WordWrap(var AText: string; AMaxWidth,
   AIndent: double): integer;
+
+  function TrimRightSpacesTabs(const S: string): string;
+  var
+    I: Integer;
+  begin
+    I := Length(S);
+    while (I > 0) and ((S[I] = ' ') or (S[I] = #9)) do
+      Dec(I);
+    Result := Copy(S, 1, I);
+  end;
+
 { http://www.fpdf.org/en/script/script49.php - Ron Korving }
 var
   Space, Width, WordWidth: Double;
@@ -1178,7 +1189,7 @@ begin
           else
           begin
             Width := WordWidth;
-            AText := TrimRight(AText) + sLineBreak + Copy(Word, L, 1);
+            AText := TrimRightSpacesTabs(AText) + sLineBreak + Copy(Word, L, 1);
             Inc(Result);
             AMaxWidth := AMaxWidth + AIndent;
           end;
@@ -1193,12 +1204,12 @@ begin
         else
         begin
           Width := WordWidth + Space;
-          AText := TrimRight(AText) + sLineBreak + Word + ' ';
+          AText := TrimRightSpacesTabs(AText) + sLineBreak + Word + ' ';
           Inc(Result);
           AMaxWidth := AMaxWidth + AIndent;
         end;
     end;
-    AText := TrimRight(AText) + sLineBreak;
+    AText := TrimRightSpacesTabs(AText) + sLineBreak;
     Inc(Result);
     AMaxWidth := AMaxWidth + AIndent;
   end;
@@ -1764,12 +1775,12 @@ begin
   end;
 end;
 
-procedure TFPDFExt.DashedRect(vX, vY, vWidht, vHeight: Double;
+procedure TFPDFExt.DashedRect(vX, vY, vWidth, vHeight: Double;
   const vStyle: String; ADashWidth: double);
 begin
   SetDash(ADashWidth);
   try
-    Rect(vX, vY, vWidht, vHeight, vStyle);
+    Rect(vX, vY, vWidth, vHeight, vStyle);
   finally
     SetDash(0);
   end;
