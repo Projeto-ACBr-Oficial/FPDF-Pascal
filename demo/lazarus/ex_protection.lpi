@@ -52,6 +52,9 @@
         <DebugInfoType Value="dsDwarf3"/>
       </Debugging>
     </Linking>
+    <Other>
+      <CustomOptions Value="-dUSE_SYNAPSE"/>
+    </Other>
   </CompilerOptions>
   <Debugging>
     <Exceptions>

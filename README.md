@@ -88,6 +88,8 @@ Note that at the beginning of Unit **fpf_ext.pas**, you can turn on/off, the sup
 
 - **DEFINE USE_SYNAPSE:** Extend the "Image" method, allowing inform a Image by URL, and also allow to use "SetProtection" (password) features
 
+- **DEFINE USE_SYNAPSE_OPENSSL3:** With USE_SYNAPSE, use the Synapse unit `ssl_openssl3` instead of `ssl_openssl` (needed with the official Synapse, https://github.com/geby/synapse)
+
 - **DEFINE DelphiZXingQRCode:** Allows the generation of **QRCodes**
 
  

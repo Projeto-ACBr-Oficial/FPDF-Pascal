@@ -56,7 +56,7 @@ uses
   {$EndIf}
   {$IFDEF HAS_HTTP}
    {$IFDEF USE_SYNAPSE}
-    ,httpsend, ssl_openssl, synacode
+    ,httpsend, {$IfDef USE_SYNAPSE_OPENSSL3}ssl_openssl3{$Else}ssl_openssl{$EndIf}, synacode
    {$ELSE}
      {$IfDef FPC}
       ,fphttpclient, opensslsockets

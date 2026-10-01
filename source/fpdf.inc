@@ -40,6 +40,11 @@
 //   http://www.ararat.cz/synapse
 //{$DEFINE USE_SYNAPSE}
 
+// With USE_SYNAPSE, define USE_SYNAPSE_OPENSSL3 to use ssl_openssl3 (OpenSSL 3)
+//   instead of ssl_openssl. Needed with the official Synapse (github.com/geby/synapse),
+//   whose laz_synapse.lpk only ships ssl_openssl3.
+//{$DEFINE USE_SYNAPSE_OPENSSL3}
+
 // If you don't want the AnsiString vs String warnings to bother you
 {$DEFINE REMOVE_CAST_WARN}
 
