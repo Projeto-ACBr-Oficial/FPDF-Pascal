@@ -61,6 +61,11 @@ These fonts are intended to be compatible with a large number of IDEs, Framework
 # Console Mode
 We do not use "Graphics" Units. So you can use FPF-Pascal in CONSOLE Projects. No Graphical Server is needed.
 
+# Bar charts
+Unit **fpdf_charts.pas**, class `TFPDFBarChart`: horizontal or vertical bars, one or more
+series, legend, sorting, top N categories, grid, fixed axis and automatic height (`CalcHeight`)
+to paginate. See the demo "graficos".
+
 # Reporting Bugs
 Please report if you notice any compilation problem or other issues.
 
