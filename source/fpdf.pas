@@ -280,6 +280,7 @@ type
     function _ANSIencode(const AText: String): AnsiString;
     function _UTF8toUTF16(const AString: String): WideString;
 
+    function _TextWidth(const vText: String): Double;
     function _escape(const sText: AnsiString): AnsiString;
     function _textstring(const AString: String): String; virtual;
     function _dounderline(vX, vY: Double; const vText: String): String;
@@ -1065,12 +1066,23 @@ begin
 end;
 
 function TFPDF.GetStringWidth(const vText: String): Double;
+begin
+  // Get width of a string in the current font
+  Result := 0;
+  if not Assigned(Self.CurrentFont) then
+    Exit;
+
+  // Measure the text converted to CP1252, as Cell outputs it
+  Result := _TextWidth(ConvertTextToAnsi(vText));
+end;
+
+function TFPDF._TextWidth(const vText: String): Double;
 var
   cw: TFPDFFontInfo;
   lines: TStringArray;
   vw, vw1, l, i, j, o: Integer;
 begin
-  // Get width of a string in the current font
+  // Width of a text already in CP1252
   Result := 0;
   if not Assigned(Self.CurrentFont) then
     Exit;
@@ -1226,7 +1238,7 @@ begin
   Self.FontSizePt := ASize;
   Self.FontSize := (ASize/Self.k);
   if ((Self.page > 0) and Assigned(Self.CurrentFont)) then
-    _out(Format('BT /F%d %.2f Tf ET', [FindUsedFontIndex(Self.CurrentFont.Name), Self.FontSizePt], FPDFFormatSetings));
+    _out(Format('BT /F%d %.2f Tf ET', [FindUsedFontIndex(Self.CurrentFont.FontName), Self.FontSizePt], FPDFFormatSetings));
 end;
 
 function TFPDF.AddLink: Integer;
@@ -1371,9 +1383,9 @@ begin
       Error('No font has been set');
 
     if (vAlign ='R') then
-      vdx := vWidth-Self.cMargin-GetStringWidth(t)
+      vdx := vWidth-Self.cMargin-_TextWidth(t)
     else if (vAlign ='C') then
-      vdx := (vWidth-GetStringWidth(t))/2
+      vdx := (vWidth-_TextWidth(t))/2
     else
       vdx := Self.cMargin;
 
@@ -1388,7 +1400,7 @@ begin
       s := s + ' Q';
 
     if (vLink <> '') then
-      Link( Self.x+vdx, Self.y+0.5*vHeight-0.5*Self.FontSize, GetStringWidth(t), Self.FontSize, vLink);
+      Link( Self.x+vdx, Self.y+0.5*vHeight-0.5*Self.FontSize, _TextWidth(t), Self.FontSize, vLink);
   end;
 
   if (s <> '') then
@@ -2494,7 +2506,7 @@ begin
   up := Self.CurrentFont.up;
   ut := Self.CurrentFont.ut;
 
-  vw := GetStringWidth(vText) + Self.ws * CountStr(vText,' ');
+  vw := _TextWidth(vText) + Self.ws * CountStr(vText,' ');
   Result := Format('%.2f %.2f %.2f %.2f re f',
      [vX * Self.k, (Self.h-(vY-up/1000*Self.FontSize))*Self.k, vw*Self.k, -ut/1000*Self.FontSizePt],
      FPDFFormatSetings);
@@ -3458,6 +3470,92 @@ end;
 
 {%region Utility Functions}
 
+{$IfDef FPC}
+// Converte UTF-8 -> CP1252 (WinAnsi, o que as core fonts do PDF esperam) em Pascal puro
+function Utf8ToCP1252Portable(const AText: String): String;
+const
+  Cp1252High: array[$80..$9F] of Word = (
+    $20AC, 0, $201A, $0192, $201E, $2026, $2020, $2021, $02C6, $2030, $0160, $2039, $0152, 0, $017D, 0,
+    0, $2018, $2019, $201C, $201D, $2022, $2013, $2014, $02DC, $2122, $0161, $203A, $0153, 0, $017E, $0178);
+var
+  i, n, len, cnt, j: Integer;
+  b: Byte;
+  cp: Cardinal;
+  ok: Boolean;
+  c: Char;
+begin
+  len := Length(AText);
+  SetLength(Result, len);
+  n := 0;
+  i := 1;
+  while i <= len do
+  begin
+    b := Ord(AText[i]);
+    if b < $80 then
+    begin
+      Inc(n);
+      Result[n] := AText[i];
+      Inc(i);
+      Continue;
+    end;
+
+    cnt := 0;
+    cp := 0;
+    if (b and $E0) = $C0 then
+    begin
+      cnt := 1;
+      cp := b and $1F;
+    end
+    else if (b and $F0) = $E0 then
+    begin
+      cnt := 2;
+      cp := b and $0F;
+    end
+    else if (b and $F8) = $F0 then
+    begin
+      cnt := 3;
+      cp := b and $07;
+    end;
+
+    ok := (cnt > 0) and (i + cnt <= len);
+    if ok then
+      for j := 1 to cnt do
+      begin
+        b := Ord(AText[i + j]);
+        if (b and $C0) <> $80 then
+        begin
+          ok := False;
+          Break;
+        end;
+        cp := (cp shl 6) or (b and $3F);
+      end;
+
+    if not ok then
+    begin
+      Inc(n);
+      Result[n] := AText[i];
+      Inc(i);
+      Continue;
+    end;
+
+    Inc(i, cnt + 1);
+    c := '?';
+    if (cp >= $A0) and (cp <= $FF) then
+      c := Chr(cp)
+    else
+      for j := Low(Cp1252High) to High(Cp1252High) do
+        if Cp1252High[j] = cp then
+        begin
+          c := Chr(j);
+          Break;
+        end;
+    Inc(n);
+    Result[n] := c;
+  end;
+  SetLength(Result, n);
+end;
+{$EndIf}
+
 function TFPDF.ConvertTextToAnsi(const AText: String): String;
 {$IFNDEF FPC}
  {$IFDEF UNICODE}
@@ -3477,7 +3575,7 @@ begin
        Result := Utf8ToAnsi(AText)
      {$ENDIF}
    {$ELSE}
-     Result := Utf8ToAnsi(AText)
+     Result := Utf8ToCP1252Portable(AText);
    {$ENDIF}
   end
   else
@@ -3661,7 +3759,7 @@ function Split(const AString: string; const ADelimiter: string; ATrimLeft: boole
 var
   p1, p2, i: Integer;
 begin
-  SetLength(Result,0);
+  Result := nil;
   i := 0;
   p1 := 1;
   p2 := pos(ADelimiter, AString);

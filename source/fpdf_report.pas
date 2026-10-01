@@ -1149,7 +1149,7 @@ var
   Band: TFPDFBand;
   I: Integer;
 begin
-  SetLength(Result, 0);
+  Result := nil;
   for I := 0 to APage.Bands.Count - 1 do
   begin
     Band := APage.Bands[I];

@@ -3229,7 +3229,7 @@ var
   Term: TGenericGFPoly;
   IterationQuotient: TGenericGFPoly;
 begin
-  SetLength(Result, 0);
+  Result := nil;
   if ((FField = Other.FField) and (not Other.IsZero)) then
   begin
 
@@ -3505,6 +3505,7 @@ var
   X: Integer;
   Y: Integer;
 begin
+  Result := nil;
   Level := TErrorCorrectionLevel.Create;
   Level.FBits := 1;
   Encoder := TEncoder.Create;
