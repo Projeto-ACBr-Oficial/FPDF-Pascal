@@ -35,6 +35,7 @@
    TFPDFScriptCode128     http://www.fpdf.org/en/script/script88.php - Roland Gautier
    TFPDFExt.Rotate        http://www.fpdf.org/en/script/script2.php  - Olivier
    TFPDFExt.RoundedRect   http://www.fpdf.org/en/script/script35.php - Christophe Prugnaud
+   TFPDFExt.Sector        http://www.fpdf.org/en/script/script19.php - Maxime Delorme
    TFPDFExt.AddLayer      http://www.fpdf.org/en/script/script97.php - Oliver
    TFPDFExt.SetProtection http://www.fpdf.org/en/script/script37.php - Klemen Vodopivec
 
@@ -178,6 +179,11 @@ type
     n: Integer;
   end;
 
+  TFPDFPoint = record
+    X, Y: Double;
+  end;
+  TFPDFPoints = array of TFPDFPoint;
+
   TFPDFEvent = procedure (APDF: TFPDF) of object;
 
   { TFPDFExt }
@@ -245,6 +251,7 @@ type
     procedure _enddoc; override;
 
     procedure _Arc(vX1, vY1, vX2, vY2, vX3, vY3: Double);
+    procedure _EllipseArcPath(vXc, vYc, vRx, vRy, vA0, vA1: Double; AMoveTo: Boolean);
   public
     procedure Header; override;
     procedure Footer; override;
@@ -255,6 +262,21 @@ type
 
     procedure RoundedRect(vX, vY, vWidth, vHeight: Double;
       vRadius: Double = 5; vCorners: String = '1234'; vStyle: String = '');
+
+    // Primitivas geometricas. Angulos em graus; X/Y/raios na unidade da pagina.
+    // vStyle: 'D' (contorno, padrao), 'F' (preenchido), 'DF'/'FD' (ambos).
+    procedure Circle(vXc, vYc, vRadius: Double; const vStyle: String = 'D');
+    procedure Ellipse(vXc, vYc, vRx, vRy: Double; const vStyle: String = 'D');
+    // Arco de elipse aberto, de vAStart ate vAEnd, anti-horario a partir das 3h
+    // (convencao matematica). Com 'F'/'DF' a corda fecha o desenho.
+    procedure Arc(vXc, vYc, vRx, vRy, vAStart, vAEnd: Double; const vStyle: String = 'D');
+    // Setor (fatia de pizza), script FPDF #19. Com vClockwise=True os angulos
+    // crescem no sentido horario e 0 = vOrigin (padrao 90 = topo).
+    procedure Sector(vXc, vYc, vRadius, vAStart, vAEnd: Double;
+      const vStyle: String = 'FD'; vClockwise: Boolean = True; vOrigin: Double = 90);
+    procedure Polygon(const vPoints: array of TFPDFPoint; const vStyle: String = 'D');
+    procedure PolyLine(const vPoints: array of TFPDFPoint);
+    procedure Curve(vX0, vY0, vX1, vY1, vX2, vY2, vX3, vY3: Double; const vStyle: String = 'D');
 
     function AddLayer(const LayerName: String; IsVisible: Boolean = true): Integer;
     procedure BeginLayer(LayerId: Integer); overload;
@@ -1074,6 +1096,138 @@ begin
           FPDFFormatSetings));
 end;
 
+
+{ Primitivas geometricas - Bezier sobre _out, mesmo padrao de RoundedRect }
+
+function _PaintOp(const AStyle: String; AClose: Boolean): String;
+begin
+  if (AStyle = 'F') then
+    Result := 'f'
+  else if (AStyle = 'FD') or (AStyle = 'DF') then
+    Result := 'B'
+  else
+    Result := 'S';
+
+  if AClose and (Result <> 'f') then
+    Result := LowerCase(Result);   // s / b = fecha o caminho antes de pintar
+end;
+
+procedure TFPDFExt._EllipseArcPath(vXc, vYc, vRx, vRy, vA0, vA1: Double;
+  AMoveTo: Boolean);
+var
+  nSeg, i: Integer;
+  a, b, d, t: Double;
+  pa, pb: TFPDFPoint;
+
+  function Pt(AAng: Double): TFPDFPoint;
+  begin
+    Result.X := vXc + vRx*cos(AAng);
+    Result.Y := vYc - vRy*sin(AAng);
+  end;
+
+begin
+  a := vA0 * Pi/180;
+  d := (vA1 - vA0) * Pi/180;
+  nSeg := Ceil(Abs(d)/(Pi/2) - 1e-9);
+  if (nSeg < 1) then
+    nSeg := 1;
+  d := d / nSeg;
+  t := 4/3 * Tan(d/4);
+
+  pa := Pt(a);
+  if AMoveTo then
+    _out(Format('%.2f %.2f m', [pa.X*Self.k, (Self.h-pa.Y)*Self.k], FPDFFormatSetings));
+
+  for i := 1 to nSeg do
+  begin
+    b := a + d;
+    pb := Pt(b);
+    _Arc(pa.X - t*vRx*sin(a), pa.Y - t*vRy*cos(a),
+         pb.X + t*vRx*sin(b), pb.Y + t*vRy*cos(b),
+         pb.X, pb.Y);
+    pa := pb;
+    a := b;
+  end;
+end;
+
+procedure TFPDFExt.Ellipse(vXc, vYc, vRx, vRy: Double; const vStyle: String);
+begin
+  _EllipseArcPath(vXc, vYc, vRx, vRy, 0, 360, True);
+  _out(_PaintOp(vStyle, True));
+end;
+
+procedure TFPDFExt.Circle(vXc, vYc, vRadius: Double; const vStyle: String);
+begin
+  Ellipse(vXc, vYc, vRadius, vRadius, vStyle);
+end;
+
+procedure TFPDFExt.Arc(vXc, vYc, vRx, vRy, vAStart, vAEnd: Double; const vStyle: String);
+begin
+  _EllipseArcPath(vXc, vYc, vRx, vRy, vAStart, vAEnd, True);
+  // arco aberto: so fecha (corda) quando for preencher
+  _out(_PaintOp(vStyle, (vStyle <> '') and (vStyle <> 'D')));
+end;
+
+{ http://www.fpdf.org/en/script/script19.php - Maxime Delorme }
+procedure TFPDFExt.Sector(vXc, vYc, vRadius, vAStart, vAEnd: Double;
+  const vStyle: String; vClockwise: Boolean; vOrigin: Double);
+var
+  a0, a1, sweep: Double;
+begin
+  sweep := vAEnd - vAStart;
+  // a0 = inicio em graus matematicos (anti-horario a partir das 3h)
+  if vClockwise then
+    a0 := vOrigin - vAEnd
+  else
+    a0 := vOrigin + vAStart;
+
+  sweep := Abs(sweep);
+  if (sweep = 0) then
+    Exit;
+  if (sweep > 360) then
+    sweep := 360;
+  a1 := a0 + sweep;
+
+  _out(Format('%.2f %.2f m', [vXc*Self.k, (Self.h-vYc)*Self.k], FPDFFormatSetings));
+  _out(Format('%.2f %.2f l', [(vXc + vRadius*cos(a0*Pi/180))*Self.k,
+                              (Self.h - (vYc - vRadius*sin(a0*Pi/180)))*Self.k], FPDFFormatSetings));
+  _EllipseArcPath(vXc, vYc, vRadius, vRadius, a0, a1, False);
+  _out(_PaintOp(vStyle, True));
+end;
+
+procedure TFPDFExt.Polygon(const vPoints: array of TFPDFPoint; const vStyle: String);
+var
+  i: Integer;
+begin
+  if (Length(vPoints) < 2) then
+    Exit;
+
+  for i := 0 to High(vPoints) do
+    _out(Format('%.2f %.2f %s', [vPoints[i].X*Self.k, (Self.h-vPoints[i].Y)*Self.k,
+                                 IfThen(i = 0, 'm', 'l')], FPDFFormatSetings));
+  _out(_PaintOp(vStyle, True));
+end;
+
+procedure TFPDFExt.PolyLine(const vPoints: array of TFPDFPoint);
+var
+  i: Integer;
+begin
+  if (Length(vPoints) < 2) then
+    Exit;
+
+  for i := 0 to High(vPoints) do
+    _out(Format('%.2f %.2f %s', [vPoints[i].X*Self.k, (Self.h-vPoints[i].Y)*Self.k,
+                                 IfThen(i = 0, 'm', 'l')], FPDFFormatSetings));
+  _out('S');
+end;
+
+procedure TFPDFExt.Curve(vX0, vY0, vX1, vY1, vX2, vY2, vX3, vY3: Double;
+  const vStyle: String);
+begin
+  _out(Format('%.2f %.2f m', [vX0*Self.k, (Self.h-vY0)*Self.k], FPDFFormatSetings));
+  _Arc(vX1, vY1, vX2, vY2, vX3, vY3);
+  _out(_PaintOp(vStyle, False));
+end;
 
 { http://www.fpdf.org/en/script/script97.php - Oliver }
 function TFPDFExt.AddLayer(const LayerName: String; IsVisible: Boolean = true): Integer;

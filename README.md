@@ -102,6 +102,12 @@ Note that at the beginning of Unit **fpf_ext.pas**, you can turn on/off, the sup
 | TFPDFExt.RoundedRect | http://www.fpdf.org/en/script/script35.php | Christophe Prugnaud |
 | TFPDFExt.AddLayer | http://www.fpdf.org/en/script/script97.php | Oliver |
 | TFPDFExt.SetProtection | http://www.fpdf.org/en/script/script37.php | Klemen Vodopivec |
+| TFPDFExt.Sector | http://www.fpdf.org/en/script/script19.php | Maxime Delorme |
+
+# Geometric primitives
+**TFPDFExt** also draws `Circle`, `Ellipse`, `Arc`, `Sector`, `Polygon`, `PolyLine`
+and `Curve` (cubic Bézier). Angles are in degrees and the style is `'D'` (outline),
+`'F'` (filled) or `'DF'` (both), like `Rect`. See the demo "primitivas".
 
 # About the translator
 Daniel Simões de Almeida is a Pascal multiplataform developer.
