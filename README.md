@@ -20,10 +20,17 @@ FPDF has other benefits: high level functions. Here is a list of its main featur
    - `<u>underlined</u>`
    - `<a href="http://link.com">text</a>`
    - `<br>`
-- ~~TrueType, Type1 and encoding support~~
+- TrueType fonts with Unicode text (~~Type1~~)
 - Page compression
 
     (Note: ~~Strike~~ = not implemented in Pascal translation)
+
+# TrueType fonts
+`AddFont(Family, Style, 'file.ttf')` registers a TrueType font (one call per style). After
+`SetFont`, `Cell`, `MultiCell`, `Write`, `Text` and `GetStringWidth` accept any Unicode text
+(accents, Greek, Cyrillic, symbols...). Only the used glyphs are embedded (subset, Type0 /
+Identity-H) and the text can be copied from the PDF. Fonts with TrueType outlines (`glyf`) are
+supported; TTC collections and OpenType/CFF fonts are not. See the demo "truetype".
 
 # What Can I do with FPDF Pascal ?
 Please check the file: [FPDFPascalTest.pdf](https://github.com/Projeto-ACBr-Oficial/FPDF-Pascal/tree/main/demo/files/FPDFPascalTest.pdf)

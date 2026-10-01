@@ -54,7 +54,8 @@ uses
   {$Else}
    Contnrs,
   {$IfEnd}
-  SysUtils;
+  SysUtils,
+  ttfonts, fpdf_unicode;
 
 const
   FPDF_VERSION = '1.85';
@@ -126,11 +127,26 @@ type
     fut: Double;
     fsubsetted: Boolean;
     fdiff: String;
+    fFamily: String;
+    fTTF: TTTFontFile;                    // TrueType Unicode (AddFont); nil nas core
+    fGlyphCode: array of Cardinal;        // codepoint usado em cada glyph
+    fGlyphUsed: array of Boolean;
     procedure SetFontName(AValue: String);
     procedure SetName(AValue: String);
   public
     constructor Create;
+    destructor Destroy; override;
     procedure fill(var AFontInfo: TFPDFFontInfo; AValue: Integer);
+
+    // TrueType embutida como Type0/Identity-H (subset), texto Unicode
+    procedure LoadTrueType(const AFileName: String);
+    function IsUnicode: Boolean;
+    function CharWidth(ACodepoint: Cardinal): Integer;
+    // Glyph do codepoint, marcando-o para o subset e o ToUnicode
+    function UseChar(ACodepoint: Cardinal): Integer;
+    function UsedCodepoints: TUnicodeCodepoints;
+    property TTF: TTTFontFile read fTTF;
+    property Family: String read fFamily write fFamily;
 
     property FontType: TFPDFFontType read fFontType write fFontType;
     property FontName: String read fFontName write SetFontName;
@@ -279,6 +295,14 @@ type
     function _UTF8encode(const AString: String): String;
     function _ANSIencode(const AText: String): AnsiString;
     function _UTF8toUTF16(const AString: String): WideString;
+
+    function _TextWidth(const vText: String): Double;
+    function _FontKey(const AFamily, AStyle: String): String;
+    function _HasTrueTypeFamily(const AFamily: String): Boolean;
+    function _TextToCodepoints(const AText: String): TUnicodeCodepoints;
+    function _CodepointsToText(const ACodepoints: TUnicodeCodepoints; AStart, ACount: Integer): String;
+    function _UnicodeTextOp(const AText: String): String;
+    procedure _putunicodefont(AFont: TFPDFFont; AIndex: Integer);
 
     function _escape(const sText: AnsiString): AnsiString;
     function _textstring(const AString: String): String; virtual;
@@ -505,6 +529,77 @@ var
 begin
   for j := Low(TFPDFFontInfo) to High(TFPDFFontInfo) do
     AFontInfo[j] := AValue;
+end;
+
+destructor TFPDFFont.Destroy;
+begin
+  fTTF.Free;
+  inherited Destroy;
+end;
+
+procedure TFPDFFont.LoadTrueType(const AFileName: String);
+var
+  j: Integer;
+begin
+  FreeAndNil(fTTF);
+  fTTF := TTTFontFile.Create;
+  fTTF.GetMetrics(AFileName);
+
+  fFontType := ftTrueType;
+  fenc := encNone;
+  fup := fTTF.UnderlinePosition;
+  fut := fTTF.UnderlineThickness;
+  fill(fuv1, -1);
+  fill(fuv2, -1);
+  // larguras 0..255 tambem ficam disponiveis (codepoints Latin-1)
+  for j := Low(TFPDFFontInfo) to High(TFPDFFontInfo) do
+    fcw[j] := fTTF.CharWidth(j);
+
+  fGlyphCode := nil;
+  fGlyphUsed := nil;
+  SetLength(fGlyphCode, fTTF.NumGlyphs);
+  SetLength(fGlyphUsed, fTTF.NumGlyphs);
+end;
+
+function TFPDFFont.IsUnicode: Boolean;
+begin
+  Result := Assigned(fTTF);
+end;
+
+function TFPDFFont.CharWidth(ACodepoint: Cardinal): Integer;
+begin
+  if Assigned(fTTF) then
+    Result := fTTF.CharWidth(ACodepoint)
+  else if ACodepoint <= 255 then
+    Result := fcw[ACodepoint]
+  else
+    Result := fcw[63];
+end;
+
+function TFPDFFont.UseChar(ACodepoint: Cardinal): Integer;
+begin
+  Result := fTTF.GlyphIndex(ACodepoint);
+  if (Result > 0) and (Result < Length(fGlyphUsed)) and (not fGlyphUsed[Result]) then
+  begin
+    fGlyphUsed[Result] := True;
+    fGlyphCode[Result] := ACodepoint;
+  end;
+end;
+
+function TFPDFFont.UsedCodepoints: TUnicodeCodepoints;
+var
+  g, n: Integer;
+begin
+  Result := nil;
+  SetLength(Result, Length(fGlyphUsed));
+  n := 0;
+  for g := 0 to High(fGlyphUsed) do
+    if fGlyphUsed[g] then
+    begin
+      Result[n] := fGlyphCode[g];
+      Inc(n);
+    end;
+  SetLength(Result, n);
 end;
 
 { TFPDFFonts }
@@ -1065,18 +1160,55 @@ begin
 end;
 
 function TFPDF.GetStringWidth(const vText: String): Double;
-var
-  cw: TFPDFFontInfo;
-  lines: TStringArray;
-  vw, vw1, l, i, j, o: Integer;
 begin
   // Get width of a string in the current font
   Result := 0;
   if not Assigned(Self.CurrentFont) then
     Exit;
 
-  cw := Self.CurrentFont.cw;
+  // Core fonts measure the text converted to CP1252, as Cell outputs it
+  if Self.CurrentFont.IsUnicode then
+    Result := _TextWidth(vText)
+  else
+    Result := _TextWidth(ConvertTextToAnsi(vText));
+end;
+
+function TFPDF._TextWidth(const vText: String): Double;
+var
+  cw: TFPDFFontInfo;
+  lines: TStringArray;
+  vw, vw1, l, i, j, o: Integer;
+  cps: TUnicodeCodepoints;
+begin
+  // Width of a text already in the encoding of the current font
+  Result := 0;
+  if not Assigned(Self.CurrentFont) then
+    Exit;
+
   vw := 0;
+  if Self.CurrentFont.IsUnicode then
+  begin
+    cps := _TextToCodepoints(vText);
+    vw1 := 0;
+    for i := 0 to High(cps) do
+    begin
+      if (cps[i] = 10) then
+      begin
+        if vw1 > vw then
+          vw := vw1;
+        vw1 := 0;
+      end
+      else if (cps[i] <> 13) then
+        vw1 := vw1 + Self.CurrentFont.CharWidth(cps[i]);
+    end;
+    if vw1 > vw then
+      vw := vw1;
+
+    Result := vw*Self.FontSize/1000;
+    Exit;
+  end;
+
+  cw := Self.CurrentFont.cw;
   lines := Split(vText, sLineBreak, False);
   for i := 0 to Length(lines) - 1 do
   begin
@@ -1127,35 +1259,93 @@ begin
 end;
 
 procedure TFPDF.AddFont(AFamily: String; AStyle: String; AFile: String);
+var
+  vFamily, vStyle, vFontName, vPath, vPSName: String;
+  oFont: TFPDFFont;
+  i: Integer;
+  c: Char;
 begin
-(* //TODO
-	// Add a TrueType, OpenType or Type1 font
-	$family = strtolower($family);
-	if($file=='')
-		$file = str_replace(' ','',$family).strtolower($style).'.php';
-	$style = strtoupper($style);
-	if($style=='IB')
-		$style = 'BI';
-	$fontkey = $family.$style;
-	if(isset($this->UsedFonts[$fontkey]))
-		return;
-	$info = $this->_loadfont($file);
-	$info['i'] = count($this->UsedFonts)+1;
-	if(!empty($info['file']))
-	{
-		// Embedded font
-		if($info['type']=='TrueType')
-			$this->FontFiles[$info['file']] = array('length1'=>$info['originalsize']);
-		else
-			$this->FontFiles[$info['file']] = array('length1'=>$info['size1'], 'length2'=>$info['size2']);
-	}
-	$this->UsedFonts[$fontkey] = $info;
-*)
+  // Add a TrueType font (.ttf with "glyf" outlines). It is embedded as a
+  // subset (Type0 / Identity-H), so any Unicode text can be written with it.
+  vFamily := LowerCase(Trim(AFamily));
+  if (vFamily = '') then
+    Error('AddFont: empty font family');
+
+  vStyle := UpperCase(StringReplace(AStyle, 'U', '', [rfReplaceAll, rfIgnoreCase]));
+  if (vStyle = 'IB') then
+    vStyle := 'BI';
+
+  vFontName := _FontKey(vFamily, vStyle);
+  oFont := Self.Fonts.Font[vFontName];
+  if Assigned(oFont) then
+  begin
+    if oFont.IsUnicode then
+      Exit;  // already added
+    Error('AddFont: "'+AFamily+'" is the name of a core font, use another family name');
+  end;
+
+  if (AFile = '') then
+    AFile := StringReplace(vFamily, ' ', '', [rfReplaceAll]) + LowerCase(vStyle) + '.ttf';
+
+  vPath := AFile;
+  if (not FileExists(vPath)) and (Self.fontpath <> '') then
+    vPath := IncludeTrailingPathDelimiter(Self.fontpath) + AFile;
+  if not FileExists(vPath) then
+    Error('Font file not found: '+AFile);
+
+  oFont := TFPDFFont.Create;
+  try
+    oFont.LoadTrueType(vPath);
+  except
+    on E: Exception do
+    begin
+      oFont.Free;
+      Error('Could not load font file: '+vPath, E);
+    end;
+  end;
+
+  // PostScript name (BaseFont) without characters that are invalid in a PDF name
+  vPSName := '';
+  for i := 1 to Length(oFont.TTF.PostScriptName) do
+  begin
+    c := oFont.TTF.PostScriptName[i];
+    if (c >= '!') and (c <= '~') and (pos(c, '()<>[]{}/%#') = 0) then
+      vPSName := vPSName + c;
+  end;
+  if (vPSName = '') then
+    vPSName := StringReplace(vFontName, ' ', '', [rfReplaceAll]);
+
+  oFont.Name := vPSName;
+  oFont.FontName := vFontName;
+  oFont.Family := vFamily;
+  oFont.subsetted := True;
+  Self.Fonts.Add(oFont);
+end;
+
+function TFPDF._FontKey(const AFamily, AStyle: String): String;
+var
+  vStyleName: String;
+begin
+  vStyleName := IfThen(pos('B', AStyle) > 0, 'Bold', '') + IfThen(pos('I', AStyle) > 0, 'Oblique', '');
+  Result := AFamily + IfThen(vStyleName <> '', '-', '') + vStyleName;
+end;
+
+function TFPDF._HasTrueTypeFamily(const AFamily: String): Boolean;
+var
+  i: Integer;
+begin
+  Result := False;
+  for i := 0 to Self.Fonts.Count-1 do
+    if Self.Fonts[i].IsUnicode and (Self.Fonts[i].Family = AFamily) then
+    begin
+      Result := True;
+      Exit;
+    end;
 end;
 
 procedure TFPDF.SetFont(const AFamily: String; const AStyle: String; ASize: Double);
 var
-  vFamily, vStyle, vFontName, vStyleName: String;
+  vFamily, vStyle, vFontName: String;
   oFont: TFPDFFont;
   FontIndex: Integer;
 begin
@@ -1180,19 +1370,22 @@ begin
   if (ASize = 0) then
     ASize := Self.FontSizePt;
 
-  if (vFamily = 'arial') then
-    vFamily := 'helvetica';
+  // A TrueType family added with AddFont wins over the core font aliases
+  if not _HasTrueTypeFamily(vFamily) then
+  begin
+    if (vFamily = 'arial') then
+      vFamily := 'helvetica';
 
-  if ((vFamily='symbol') or (vFamily='zapfdingbats')) then
-    vStyle := '';
+    if ((vFamily='symbol') or (vFamily='zapfdingbats')) then
+      vStyle := '';
+  end;
 
   // Test if font is already selected
   if ((Self.FontFamily=vFamily) and (Self.FontStyle=vStyle) and (Self.FontSizePt=ASize)) then
     Exit;
 
   // Test if font is already loaded
-  vStyleName := IfThen(pos('B',vStyle) > 0, 'Bold', '') + IfThen(pos('I',vStyle) > 0, 'Oblique', '');
-  vFontName := vFamily + IfThen(vStyleName<>'','-','') + vStyleName;
+  vFontName := _FontKey(vFamily, vStyle);
   oFont := Fonts.Font[vFontName];
 
   if (oFont = Nil) then
@@ -1226,7 +1419,7 @@ begin
   Self.FontSizePt := ASize;
   Self.FontSize := (ASize/Self.k);
   if ((Self.page > 0) and Assigned(Self.CurrentFont)) then
-    _out(Format('BT /F%d %.2f Tf ET', [FindUsedFontIndex(Self.CurrentFont.Name), Self.FontSizePt], FPDFFormatSetings));
+    _out(Format('BT /F%d %.2f Tf ET', [FindUsedFontIndex(Self.CurrentFont.FontName), Self.FontSizePt], FPDFFormatSetings));
 end;
 
 function TFPDF.AddLink: Integer;
@@ -1288,8 +1481,16 @@ begin
   if not Assigned(Self.CurrentFont) then
      Error('No font has been set');
 
-  t := ConvertTextToAnsi(vText);
-  s := Format('BT %.2f %.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(t)], FPDFFormatSetings);
+  if Self.CurrentFont.IsUnicode then
+  begin
+    t := vText;
+    s := Format('BT %.2f %.2f Td %s ET', [vX*Self.k, (Self.h-vY)*Self.k, _UnicodeTextOp(t)], FPDFFormatSetings);
+  end
+  else
+  begin
+    t := ConvertTextToAnsi(vText);
+    s := Format('BT %.2f %.2f Td (%s) Tj ET', [vX*Self.k, (Self.h-vY)*Self.k, _escape(t)], FPDFFormatSetings);
+  end;
   if ( Self.underline and (t <> '') ) then
     s := s + ' ' + Self._dounderline(vX, vY, t);
 
@@ -1311,6 +1512,7 @@ procedure TFPDF.Cell(vWidth: Double; vHeight: Double; const vText: String;
 var
   vk, vx, vy, vws, vdx: Double;
   s, vop, t: String;
+  vUnicode: Boolean;
 begin
   // Output a cell
   vk := Self.k;
@@ -1366,21 +1568,29 @@ begin
 
   if (vText <> '') then
   begin
-    t := ConvertTextToAnsi(vText);
     if not Assigned(Self.CurrentFont) then
       Error('No font has been set');
 
+    vUnicode := Self.CurrentFont.IsUnicode;
+    if vUnicode then
+      t := vText
+    else
+      t := ConvertTextToAnsi(vText);
+
     if (vAlign ='R') then
-      vdx := vWidth-Self.cMargin-GetStringWidth(t)
+      vdx := vWidth-Self.cMargin-_TextWidth(t)
     else if (vAlign ='C') then
-      vdx := (vWidth-GetStringWidth(t))/2
+      vdx := (vWidth-_TextWidth(t))/2
     else
       vdx := Self.cMargin;
 
     if Self.ColorFlag then
       s := s + 'q ' + Self.TextColor + ' ';
 
-    s := s + Format('BT %.2f %.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(t)], FPDFFormatSetings);
+    if vUnicode then
+      s := s + Format('BT %.2f %.2f Td %s ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _UnicodeTextOp(t)], FPDFFormatSetings)
+    else
+      s := s + Format('BT %.2f %.2f Td (%s) Tj ET', [(Self.x+vdx)*vk, (Self.h-(Self.y+0.5*vHeight+0.3*Self.FontSize))*vk, _escape(t)], FPDFFormatSetings);
     if Self.underline then
       s := s + ' '+Self._dounderline(Self.x+vdx, Self.y+0.5*vHeight+0.3*Self.FontSize, t);
 
@@ -1388,7 +1598,7 @@ begin
       s := s + ' Q';
 
     if (vLink <> '') then
-      Link( Self.x+vdx, Self.y+0.5*vHeight-0.5*Self.FontSize, GetStringWidth(t), Self.FontSize, vLink);
+      Link( Self.x+vdx, Self.y+0.5*vHeight-0.5*Self.FontSize, _TextWidth(t), Self.FontSize, vLink);
   end;
 
   if (s <> '') then
@@ -1414,15 +1624,49 @@ var
   cw: TFPDFFontInfo;
   wFirst, wOther, wMax, wMaxFirst, wMaxOther, SaveX: Double;
   s, b, vb, b2: String;
-  nb, sep, i, j, l, ns, nl, ls, o: Integer;
-  c: Char;
-  vUTF8, First: Boolean;
+  nb, sep, i, j, l, ns, nl, ls: Integer;
+  c: Cardinal;
+  cps: TUnicodeCodepoints;
+  vUTF8, First, vUnicode: Boolean;
+
+  function CharAt(AIdx: Integer): Cardinal;
+  begin
+    if vUnicode then
+      Result := cps[AIdx-1]
+    else
+      Result := Ord(s[AIdx]);
+  end;
+
+  function CharWidthAt(AIdx: Integer): Integer;
+  var
+    o: Cardinal;
+  begin
+    if vUnicode then
+      Result := Self.CurrentFont.CharWidth(cps[AIdx-1])
+    else
+    begin
+      o := Ord(s[AIdx]);
+      if (o > 255) then
+        o := 63;  // ?
+      Result := cw[o];
+    end;
+  end;
+
+  function SubText(AFrom, ACount: Integer): String;
+  begin
+    if vUnicode then
+      Result := _CodepointsToText(cps, AFrom-1, ACount)
+    else
+      Result := copy(s, AFrom, ACount);
+  end;
+
 begin
   // Output text with automatic or explicit line breaks
   if not Assigned(Self.CurrentFont) then
     Error('No font has been set');
 
   vUTF8 := Self.UseUTF8;
+  vUnicode := Self.CurrentFont.IsUnicode;
   try
     cw := Self.CurrentFont.cw;
     if (vWidth=0) then
@@ -1434,11 +1678,22 @@ begin
     wMaxFirst := (wFirst-2*Self.cMargin)*1000/Self.FontSize;
     wMaxOther := (wOther-2*Self.cMargin)*1000/Self.FontSize;
 
-    s := StringReplace(ConvertTextToAnsi(vText), CR, '', [rfReplaceAll]);
-    Self.UseUTF8 := False;
-    nb := Length(s);
-    if ((nb>0) and (s[nb-1] = LF)) then
-      Dec(nb);
+    if vUnicode then
+    begin
+      cps := _TextToCodepoints(StringReplace(vText, CR, '', [rfReplaceAll]));
+      nb := Length(cps);
+      if ((nb>0) and (cps[nb-1] = 10)) then
+        Dec(nb);
+    end
+    else
+    begin
+      s := StringReplace(ConvertTextToAnsi(vText), CR, '', [rfReplaceAll]);
+
+      Self.UseUTF8 := False;
+      nb := Length(s);
+      if ((nb>0) and (s[nb-1] = LF)) then
+        Dec(nb);
+    end;
 
     b := '0';
     vb := vBorder;
@@ -1473,8 +1728,8 @@ begin
     while (i <= nb) do
     begin
       // Get next character
-      c := s[i];
-      if (c = LF) then
+      c := CharAt(i);
+      if (c = 10) then
       begin
         // Explicit line break
         if (Self.ws > 0) then
@@ -1483,7 +1738,7 @@ begin
   	      _out('0 Tw');
         end;
 
-        Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+        Cell(vWidth, vHeight, SubText(j, i-j), b, 2, vAlign, vFill);
         Inc(i);
         sep := -1;
         j := i;
@@ -1495,17 +1750,17 @@ begin
         continue;
       end;
 
-      if (c=' ') then
+      if (c = 32) then
       begin
         sep := i;
         ls := l;
         Inc(ns);
       end;
 
-      o := ord(c);
-      if (o > 255) then
-        o := 63;  // ?
-      l := l + cw[o];
+
+
+
+      l := l + CharWidthAt(i);
 
       if First then
       begin
@@ -1536,7 +1791,7 @@ begin
             Self.SetX(Self.x + AIndent);
             First := False;
           end;
-          Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+          Cell(vWidth, vHeight, SubText(j, i-j), b, 2, vAlign, vFill);
           Self.SetX(SaveX);
         end
         else
@@ -1556,7 +1811,7 @@ begin
             Self.SetX(Self.x + AIndent);
             First := False;
           end;
-          Cell( vWidth, vHeight, Copy(s, j, sep-j), b, 2, vAlign, vFill);
+          Cell( vWidth, vHeight, SubText(j, sep-j), b, 2, vAlign, vFill);
           Self.SetX(SaveX);
           i := sep+1;
         end;
@@ -1584,7 +1839,7 @@ begin
     if ((vb <> '') and (pos('B', vb) > 0)) then
       b := b + 'B';
 
-    Cell(vWidth, vHeight, copy(s, j, i-j), b, 2, vAlign, vFill);
+    Cell(vWidth, vHeight, SubText(j, i-j), b, 2, vAlign, vFill);
     Self.x := Self.lMargin;
   finally
     Self.UseUTF8 := vUTF8;
@@ -1598,22 +1853,64 @@ var
   cw: TFPDFFontInfo;
   vw, wmax: Double;
   s: String;
-  nb, sep, i, j, l, nl, o: Integer;
-  c: Char;
-  vUTF8: Boolean;
+  nb, sep, i, j, l, nl: Integer;
+  c: Cardinal;
+  cps: TUnicodeCodepoints;
+  vUTF8, vUnicode: Boolean;
+
+  function CharAt(AIdx: Integer): Cardinal;
+  begin
+    if vUnicode then
+      Result := cps[AIdx-1]
+    else
+      Result := Ord(s[AIdx]);
+  end;
+
+  function CharWidthAt(AIdx: Integer): Integer;
+  var
+    o: Cardinal;
+  begin
+    if vUnicode then
+      Result := Self.CurrentFont.CharWidth(cps[AIdx-1])
+    else
+    begin
+      o := Ord(s[AIdx]);
+      if (o > 255) then
+        o := 63;  // ?
+      Result := cw[o];
+    end;
+  end;
+
+  function SubText(AFrom, ACount: Integer): String;
+  begin
+    if vUnicode then
+      Result := _CodepointsToText(cps, AFrom-1, ACount)
+    else
+      Result := copy(s, AFrom, ACount);
+  end;
+
 begin
   // Output text in flowing mode
   if not Assigned(Self.CurrentFont) then
     Error('No font has been set');
 
   vUTF8 := Self.UseUTF8;
+  vUnicode := Self.CurrentFont.IsUnicode;
   try
     cw := Self.CurrentFont.cw;
     vw := Self.w-Self.rMargin-Self.x;
     wmax := (vw-2*Self.cMargin)*1000/Self.FontSize;
-    s := StringReplace(ConvertTextToAnsi(vText), CR, '', [rfReplaceAll]);
-    Self.UseUTF8 := False;
-    nb := Length(s);
+    if vUnicode then
+    begin
+      cps := _TextToCodepoints(StringReplace(vText, CR, '', [rfReplaceAll]));
+      nb := Length(cps);
+    end
+    else
+    begin
+      s := StringReplace(ConvertTextToAnsi(vText), CR, '', [rfReplaceAll]);
+      Self.UseUTF8 := False;
+      nb := Length(s);
+    end;
     sep := -1;
     i := 1;
     j := 0;
@@ -1622,11 +1919,11 @@ begin
     while (i <= nb) do
     begin
       // Get next character
-      c := s[i];
-      if (c = LF) then
+      c := CharAt(i);
+      if (c = 10) then
       begin
         // Explicit line break
-        Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', false, vLink);
+        Cell(vw, vHeight, SubText(j, i-j), '0', 2, '', false, vLink);
         Inc(i);
         sep := -1;
         j := i;
@@ -1642,13 +1939,13 @@ begin
         continue;
       end;
 
-      if (c = ' ') then
+      if (c = 32) then
         sep := i;
 
-      o := Ord(c);
-      if (o > 255) then
-        o := 63;  // ?
-      l := l + cw[o];
+
+
+
+      l := l + CharWidthAt(i);
 
       if (l > wmax) then
       begin
@@ -1670,11 +1967,11 @@ begin
           if (i = j) then
             inc(i);
 
-  	      Cell(vw, vHeight, Copy(s, j, i-j), '0', 2, '', False, vLink);
+  	      Cell(vw, vHeight, SubText(j, i-j), '0', 2, '', False, vLink);
         end
         else
         begin
-          Cell(vw, vHeight, copy(s, j, sep-j), '0', 2, '', False, vLink);
+          Cell(vw, vHeight, SubText(j, sep-j), '0', 2, '', False, vLink);
   	      i := sep+1;
         end;
 
@@ -1696,7 +1993,7 @@ begin
 
     // Last chunk
     if (i <> j) then
-      Cell(l/1000*Self.FontSize, vHeight, copy(s, j, Length(s)), '0', 0, '', False, vLink);
+      Cell(l/1000*Self.FontSize, vHeight, SubText(j, nb), '0', 0, '', False, vLink);
   finally
     Self.UseUTF8 := vUTF8;
   end;
@@ -2456,6 +2753,213 @@ begin
   Result := WideString(AString);
 end;
 
+function TFPDF._TextToCodepoints(const AText: String): TUnicodeCodepoints;
+begin
+  // Text of the application -> Unicode codepoints (for TrueType Unicode fonts)
+  {$IfDef UNICODE}
+   Result := UTF8StringToCodepoints(AText);   // native UTF-16
+  {$Else}
+   if Self.UseUTF8 then
+     Result := UTF8StringToCodepoints(AText)
+   else
+     Result := CP1252ToCodepoints(AnsiString(AText));
+  {$EndIf}
+end;
+
+function TFPDF._CodepointsToText(const ACodepoints: TUnicodeCodepoints;
+  AStart, ACount: Integer): String;
+begin
+  // Inverse of _TextToCodepoints, for a slice (AStart is 0-based)
+  {$IfDef UNICODE}
+   Result := CodepointsToString(ACodepoints, AStart, ACount);
+  {$Else}
+   if Self.UseUTF8 then
+     Result := CodepointsToString(ACodepoints, AStart, ACount)
+   else
+     Result := String(CodepointsToCP1252(ACodepoints, AStart, ACount));
+  {$EndIf}
+end;
+
+function TFPDF._UnicodeTextOp(const AText: String): String;
+const
+  HexDigits: array[0..15] of Char = '0123456789ABCDEF';
+var
+  cps: TUnicodeCodepoints;
+  i, g, p: Integer;
+  hex, adj: String;
+  useTJ: Boolean;
+begin
+  // Text show operator for a Type0/Identity-H font: 2-byte glyph ids.
+  // Tw doesn't affect 2-byte codes, so word spacing goes in a TJ array.
+  cps := _TextToCodepoints(AText);
+  useTJ := (Self.ws <> 0);
+  if useTJ then
+    adj := Format('> %.3f <', [-1000*Self.ws/Self.FontSize], FPDFFormatSetings)
+  else
+    adj := '';
+
+  SetLength(hex, Length(cps) * 4 + Length(cps) * Length(adj));
+  p := 0;
+  for i := 0 to High(cps) do
+  begin
+    if (cps[i] = 10) or (cps[i] = 13) then
+      Continue;
+
+    g := Self.CurrentFont.UseChar(cps[i]);
+    hex[p+1] := HexDigits[(g shr 12) and $F];
+    hex[p+2] := HexDigits[(g shr 8) and $F];
+    hex[p+3] := HexDigits[(g shr 4) and $F];
+    hex[p+4] := HexDigits[g and $F];
+    Inc(p, 4);
+    if useTJ and (cps[i] = 32) then
+    begin
+      Move(adj[1], hex[p+1], Length(adj)*SizeOf(Char));
+      Inc(p, Length(adj));
+    end;
+  end;
+  SetLength(hex, p);
+
+  if useTJ then
+    Result := '[<'+hex+'>] TJ'
+  else
+    Result := '<'+hex+'> Tj';
+end;
+
+procedure TFPDF._putunicodefont(AFont: TFPDFFont; AIndex: Integer);
+var
+  ttf: TTTFontFile;
+  cps: TUnicodeCodepoints;
+  sub, d: AnsiString;
+  tag, baseName, s, w, cmap, chars, entries: String;
+  base, g, prev, dw, flags, stemv, nbc, hash, i: Integer;
+begin
+  ttf := AFont.TTF;
+  cps := AFont.UsedCodepoints;
+
+  // Subset tag: 6 uppercase letters, unique per font in the document
+  hash := AIndex + 1;
+  for i := 1 to Length(AFont.Name) do
+    hash := (hash * 31 + Ord(AFont.Name[i])) and $3FFFFFFF;
+  for i := 0 to High(cps) do
+    hash := (hash * 31 + Integer(cps[i] and $FFFF)) and $3FFFFFFF;
+  tag := '';
+  for i := 1 to 6 do
+  begin
+    tag := tag + Chr(Ord('A') + (hash mod 26));
+    hash := hash div 26 + (AIndex + 7) * i;
+  end;
+  baseName := tag + '+' + AFont.Name;
+
+  // Objects: base+1 Type0, base+2 CIDFontType2, base+3 ToUnicode,
+  //          base+4 FontDescriptor, base+5 FontFile2
+  base := Self.n;
+  Self.UsedFonts[AIndex].n := base+1;
+
+  // Type0
+  _newobj();
+  _put('<</Type /Font /Subtype /Type0 /BaseFont /'+baseName+' /Encoding /Identity-H');
+  _put('/DescendantFonts ['+IntToStr(base+2)+' 0 R] /ToUnicode '+IntToStr(base+3)+' 0 R>>');
+  _put('endobj');
+
+  // Widths of the used glyphs: "g [w1 w2 ...]" for each run of consecutive glyphs
+  dw := ttf.GlyphWidth(0);
+  w := '';
+  prev := -2;
+  for g := 1 to ttf.NumGlyphs-1 do
+  begin
+    if not AFont.fGlyphUsed[g] then
+      Continue;
+    if (g <> prev+1) then
+    begin
+      if (w <> '') then
+        w := w + ']' + LF;
+      w := w + IntToStr(g) + ' [';
+    end
+    else
+      w := w + ' ';
+    w := w + IntToStr(ttf.GlyphWidth(g));
+    prev := g;
+  end;
+  if (w <> '') then
+    w := w + ']';
+
+  // CIDFontType2
+  _newobj();
+  _put('<</Type /Font /Subtype /CIDFontType2 /BaseFont /'+baseName);
+  _put('/CIDSystemInfo <</Registry '+_textstring('Adobe')+' /Ordering '+_textstring('Identity')+' /Supplement 0>>');
+  _put('/FontDescriptor '+IntToStr(base+4)+' 0 R /CIDToGIDMap /Identity');
+  _put('/DW '+IntToStr(dw)+' /W ['+w+']>>');
+  _put('endobj');
+
+  // ToUnicode: glyph id -> UTF-16BE
+  cmap := '/CIDInit /ProcSet findresource begin'+LF+
+          '12 dict begin'+LF+
+          'begincmap'+LF+
+          '/CIDSystemInfo <</Registry (Adobe) /Ordering (UCS) /Supplement 0>> def'+LF+
+          '/CMapName /Adobe-Identity-UCS def'+LF+
+          '/CMapType 2 def'+LF+
+          '1 begincodespacerange'+LF+
+          '<0000> <FFFF>'+LF+
+          'endcodespacerange'+LF;
+  chars := '';
+  nbc := 0;
+  for g := 1 to ttf.NumGlyphs-1 do
+  begin
+    if not AFont.fGlyphUsed[g] then
+      Continue;
+    SetLength(cps, 1);
+    cps[0] := AFont.fGlyphCode[g];
+    chars := chars + '<' + IntToHex(g, 4) + '> <' + HexEncode(CodepointsToUTF16BE(cps)) + '>' + LF;
+    Inc(nbc);
+    if (nbc = 100) then
+    begin
+      cmap := cmap + IntToStr(nbc)+' beginbfchar'+LF + chars + 'endbfchar'+LF;
+      chars := '';
+      nbc := 0;
+    end;
+  end;
+  if (nbc > 0) then
+    cmap := cmap + IntToStr(nbc)+' beginbfchar'+LF + chars + 'endbfchar'+LF;
+  cmap := cmap + 'endcmap'+LF+
+          'CMapName currentdict /CMap defineresource pop'+LF+
+          'end'+LF+
+          'end';
+  _putstreamobject(AnsiString(cmap));
+
+  // FontDescriptor
+  flags := 4;                        // symbolic (CID font)
+  if ttf.IsFixedPitchFont then
+    flags := flags or 1;
+  if (ttf.ItalicAngle <> 0) then
+    flags := flags or 64;
+  stemv := 50 + Round(Sqr(ttf.WeightClass / 65));
+  _newobj();
+  s := '<</Type /FontDescriptor /FontName /'+baseName;
+  s := s + Format(' /Flags %d /FontBBox [%d %d %d %d] /ItalicAngle %.2f',
+    [flags, ttf.XMin, ttf.YMin, ttf.XMax, ttf.YMax, ttf.ItalicAngle], FPDFFormatSetings);
+  s := s + Format(' /Ascent %d /Descent %d /CapHeight %d /StemV %d /MissingWidth %d',
+    [ttf.Ascent, ttf.Descent, ttf.CapHeight, stemv, dw]);
+  _put(s+' /FontFile2 '+IntToStr(base+5)+' 0 R>>');
+  _put('endobj');
+
+  // FontFile2: TrueType subset (glyph ids preserved)
+  sub := ttf.MakeSubset(AFont.UsedCodepoints);
+  if Self.compress then
+  begin
+    entries := '/Filter /FlateDecode ';
+    d := gzcompress(sub);
+  end
+  else
+  begin
+    entries := '';
+    d := sub;
+  end;
+  _newobj();
+  _put('<<'+entries+'/Length '+IntToStr(Length(d))+' /Length1 '+IntToStr(Length(sub))+'>>');
+  _putstream(d);
+  _put('endobj');
+end;
+
 function TFPDF._escape(const sText: AnsiString): AnsiString;
 begin
   //Add \ before \, ( and )
@@ -2494,7 +2998,7 @@ begin
   up := Self.CurrentFont.up;
   ut := Self.CurrentFont.ut;
 
-  vw := GetStringWidth(vText) + Self.ws * CountStr(vText,' ');
+  vw := _TextWidth(vText) + Self.ws * CountStr(vText,' ');
   Result := Format('%.2f %.2f %.2f %.2f re f',
      [vX * Self.k, (Self.h-(vY-up/1000*Self.FontSize))*Self.k, vw*Self.k, -ut/1000*Self.FontSizePt],
      FPDFFormatSetings);
@@ -3061,6 +3565,13 @@ begin
   for i := 0 to LenFonts-1 do
   begin
     Font := Self.Fonts.Font[Self.UsedFonts[i].FontName];
+    if Font.IsUnicode then
+    begin
+      // TrueType added by AddFont
+      _putunicodefont(Font, i);
+      Continue;
+    end;
+
     // Encoding
     if (Font.diff <> '') then
     begin
@@ -3458,6 +3969,92 @@ end;
 
 {%region Utility Functions}
 
+{$IfDef FPC}
+// Converte UTF-8 -> CP1252 (WinAnsi, o que as core fonts do PDF esperam) em Pascal puro
+function Utf8ToCP1252Portable(const AText: String): String;
+const
+  Cp1252High: array[$80..$9F] of Word = (
+    $20AC, 0, $201A, $0192, $201E, $2026, $2020, $2021, $02C6, $2030, $0160, $2039, $0152, 0, $017D, 0,
+    0, $2018, $2019, $201C, $201D, $2022, $2013, $2014, $02DC, $2122, $0161, $203A, $0153, 0, $017E, $0178);
+var
+  i, n, len, cnt, j: Integer;
+  b: Byte;
+  cp: Cardinal;
+  ok: Boolean;
+  c: Char;
+begin
+  len := Length(AText);
+  SetLength(Result, len);
+  n := 0;
+  i := 1;
+  while i <= len do
+  begin
+    b := Ord(AText[i]);
+    if b < $80 then
+    begin
+      Inc(n);
+      Result[n] := AText[i];
+      Inc(i);
+      Continue;
+    end;
+
+    cnt := 0;
+    cp := 0;
+    if (b and $E0) = $C0 then
+    begin
+      cnt := 1;
+      cp := b and $1F;
+    end
+    else if (b and $F0) = $E0 then
+    begin
+      cnt := 2;
+      cp := b and $0F;
+    end
+    else if (b and $F8) = $F0 then
+    begin
+      cnt := 3;
+      cp := b and $07;
+    end;
+
+    ok := (cnt > 0) and (i + cnt <= len);
+    if ok then
+      for j := 1 to cnt do
+      begin
+        b := Ord(AText[i + j]);
+        if (b and $C0) <> $80 then
+        begin
+          ok := False;
+          Break;
+        end;
+        cp := (cp shl 6) or (b and $3F);
+      end;
+
+    if not ok then
+    begin
+      Inc(n);
+      Result[n] := AText[i];
+      Inc(i);
+      Continue;
+    end;
+
+    Inc(i, cnt + 1);
+    c := '?';
+    if (cp >= $A0) and (cp <= $FF) then
+      c := Chr(cp)
+    else
+      for j := Low(Cp1252High) to High(Cp1252High) do
+        if Cp1252High[j] = cp then
+        begin
+          c := Chr(j);
+          Break;
+        end;
+    Inc(n);
+    Result[n] := c;
+  end;
+  SetLength(Result, n);
+end;
+{$EndIf}
+
 function TFPDF.ConvertTextToAnsi(const AText: String): String;
 {$IFNDEF FPC}
  {$IFDEF UNICODE}
@@ -3477,7 +4074,7 @@ begin
        Result := Utf8ToAnsi(AText)
      {$ENDIF}
    {$ELSE}
-     Result := Utf8ToAnsi(AText)
+     Result := Utf8ToCP1252Portable(AText);
    {$ENDIF}
   end
   else
@@ -3661,7 +4258,7 @@ function Split(const AString: string; const ADelimiter: string; ATrimLeft: boole
 var
   p1, p2, i: Integer;
 begin
-  SetLength(Result,0);
+  Result := nil;
   i := 0;
   p1 := 1;
   p2 := pos(ADelimiter, AString);

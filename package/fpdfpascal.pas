@@ -8,7 +8,7 @@ unit FPDFPascal;
 interface
 
 uses
-  fpdf, fpdf_ext, fpdf_report;
+  fpdf, fpdf_ext, fpdf_report, fpdf_unicode, ttfonts;
 
 implementation
 

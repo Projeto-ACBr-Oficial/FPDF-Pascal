@@ -29,6 +29,14 @@ FPDF is a class which allows to generate PDF files with pure Code, that is to sa
         <UnitName Value="fpdf_ext"/>
       </Item>
       <Item>
+        <Filename Value="..\source\fpdf_unicode.pas"/>
+        <UnitName Value="fpdf_unicode"/>
+      </Item>
+      <Item>
+        <Filename Value="..\source\ttfonts.pas"/>
+        <UnitName Value="ttfonts"/>
+      </Item>
+      <Item>
         <Filename Value="..\source\fpdf_report.pas"/>
         <UnitName Value="fpdf_report"/>
       </Item>
